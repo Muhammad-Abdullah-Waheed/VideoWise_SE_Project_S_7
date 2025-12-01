@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border border-gray-200/50 dark:border-gray-700/50 shadow-lg;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white font-medium px-6 py-2.5 rounded-xl 
+           transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 font-medium px-6 py-2.5 rounded-xl 
+           transition-all duration-200;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none 
+           focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all
+           bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100;
+  }
+  
+  .card {
+    @apply glass-card rounded-2xl p-6;
+  }
+
+  /* Slider styles */
+  .slider::-webkit-slider-thumb {
+    @apply appearance-none w-4 h-4 bg-primary-600 rounded-full cursor-pointer;
+  }
+
+  .slider::-moz-range-thumb {
+    @apply w-4 h-4 bg-primary-600 rounded-full cursor-pointer border-0;
+  }
+}
+
