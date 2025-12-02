@@ -4,15 +4,11 @@ import { FileText, List, Clock, BookOpen, Star } from 'lucide-react';
 interface SummaryFormatViewerProps {
   summary: string;
   format: 'paragraph' | 'bullet' | 'timeline' | 'chapters' | 'highlights';
-  transcript?: string;
-  visualCaptions?: Array<{ frame?: number; caption: string }>;
 }
 
 const SummaryFormatViewer: React.FC<SummaryFormatViewerProps> = ({
   summary,
-  format,
-  transcript,
-  visualCaptions
+  format
 }) => {
   // Parse summary into different formats
   const parseBulletPoints = (text: string) => {

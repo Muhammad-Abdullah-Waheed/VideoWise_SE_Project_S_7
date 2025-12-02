@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, XCircle, Sparkles } from 'lucide-react';
+import { ArrowLeft, Loader2, XCircle } from 'lucide-react';
 import { apiService, JobStatus, JobResult } from '@/services/api';
 import VideoPlayer from '@/components/VideoPlayer';
 import SummaryFormatViewer from '@/components/SummaryFormatViewer';
