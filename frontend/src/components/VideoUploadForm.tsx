@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Link as LinkIcon, Loader2, Server, Sparkles } from 'lucide-react';
+import { Upload, Link as LinkIcon, Loader2 } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { useGemini } from '@/contexts/GeminiContext';
 import { geminiService } from '@/services/geminiService';
 import toast from 'react-hot-toast';
 import { cn } from '@/utils/cn';
@@ -39,11 +38,6 @@ const SUMMARY_LENGTH_OPTIONS = [
 
 const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
   const [activeTab, setActiveTab] = useState<'upload' | 'url'>('upload');
-  const [processingMode, setProcessingMode] = useState<'backend' | 'gemini'>(() => {
-    // Check if backend is available, default to backend
-    const useBackend = localStorage.getItem('use_backend') !== 'false';
-    return useBackend ? 'backend' : 'gemini';
-  });
   const [backendAvailable, setBackendAvailable] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState('');
@@ -53,12 +47,13 @@ const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
   const [summaryLength, setSummaryLength] = useState<string | number | null>(null);
   const [customWordCount, setCustomWordCount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [geminiApiKeyInput, setGeminiApiKeyInput] = useState('');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [processingProgress, setProcessingProgress] = useState<number | null>(null);
+  const [processingStep, setProcessingStep] = useState<string | null>(null);
   const { user } = useAuth();
-  const { apiKey: geminiApiKey, setApiKey: setGeminiApiKey, isConfigured: isGeminiConfigured } = useGemini();
   const navigate = useNavigate();
 
-  // Check backend availability on mount
+  // Check backend availability on mount (silently, don't show to user)
   useEffect(() => {
     const checkBackend = async () => {
       try {
@@ -67,18 +62,30 @@ const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
           signal: AbortSignal.timeout(3000),
         });
         setBackendAvailable(response.ok);
-        if (!response.ok) {
-          setProcessingMode('gemini');
-          localStorage.setItem('use_backend', 'false');
-        }
       } catch (error) {
+        // Silently mark backend as unavailable - will use direct processing fallback
         setBackendAvailable(false);
-        setProcessingMode('gemini');
-        localStorage.setItem('use_backend', 'false');
       }
     };
     checkBackend();
   }, []);
+
+  const ensureAIServiceInitialized = () => {
+    // Prefer env-based key; fall back to any previously stored local key
+    const envKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+    const storedKey = localStorage.getItem('ai_api_key') || undefined;
+    const apiKeyToUse = envKey || storedKey;
+
+    if (!apiKeyToUse) {
+      throw new Error('API key is not configured. Set VITE_GEMINI_API_KEY in your frontend .env file.');
+    }
+
+    if (!geminiService.isInitialized()) {
+      geminiService.initialize(apiKeyToUse);
+      // Cache in localStorage so refreshes keep working without re-reading env
+      localStorage.setItem('ai_api_key', apiKeyToUse);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -88,95 +95,132 @@ const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
         return;
       }
       setFile(selectedFile);
+      // Create a local preview URL for the selected video
+      const url = URL.createObjectURL(selectedFile);
+      setPreviewUrl((old) => {
+        if (old) {
+          URL.revokeObjectURL(old);
+        }
+        return url;
+      });
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setProcessingProgress(null);
+    setProcessingStep(null);
 
     try {
       const summaryLengthWords = summaryLength === 'custom' 
         ? (customWordCount ? parseInt(customWordCount) : null)
         : (typeof summaryLength === 'number' ? summaryLength : null);
 
-      // Handle Gemini Direct processing
-      if (processingMode === 'gemini') {
-        if (!isGeminiConfigured && !geminiApiKeyInput) {
-          toast.error('Please provide Gemini API key');
+      const useBackendFirst = backendAvailable;
+
+      const processWithDirect = async (videoFileToProcess?: File) => {
+        let fileToProcess = videoFileToProcess || file;
+        
+        if (!fileToProcess) {
+          toast.error('Please select a video file or enter a URL');
           setIsSubmitting(false);
           return;
         }
 
-        // Initialize Gemini if not already done
-        const apiKeyToUse = geminiApiKey || geminiApiKeyInput;
-        if (!geminiService.isInitialized()) {
-          geminiService.initialize(apiKeyToUse);
-          if (geminiApiKeyInput) {
-            setGeminiApiKey(geminiApiKeyInput);
-          }
+        try {
+          ensureAIServiceInitialized();
+        } catch (err: any) {
+          toast.error(err.message || 'API key not configured');
+          setIsSubmitting(false);
+          return;
         }
 
-        if (activeTab === 'upload' && file) {
-          toast.loading('Processing video with Gemini...', { id: 'gemini-processing' });
-          
-          // Process with progress updates
-          const result = await geminiService.processVideo(
-            file,
-            {
-              numFrames: numFrames,
-              summaryStyle,
-              summaryFormat,
-              summaryLengthWords: summaryLengthWords || undefined,
-            },
-            (progress, step) => {
-              toast.loading(`${step} (${progress}%)`, { id: 'gemini-processing' });
-            }
-          );
+        toast.loading('Processing video...', { id: 'direct-processing' });
 
-          if (result.status === 'failed') {
-            toast.error('Failed to process video with Gemini', { id: 'gemini-processing' });
+        const result = await geminiService.processVideo(
+          fileToProcess,
+          {
+            numFrames: numFrames,
+            summaryStyle,
+            summaryFormat,
+            summaryLengthWords: summaryLengthWords || undefined,
+            userProfile: user ? {
+              id: user.id,
+              name: user.name,
+              expertise: user.expertise || [],
+              summaryPreferences: user.summaryPreferences || {},
+            } : null,
+          },
+          (progress, step) => {
+            setProcessingProgress(progress);
+            setProcessingStep(step);
+            toast.loading(`${step} (${progress}%)`, { id: 'direct-processing' });
+          }
+        );
+
+        if (result.status === 'failed') {
+          toast.error('Failed to process video', { id: 'direct-processing' });
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Store result in localStorage for JobPage to access
+        // Include user ID to filter jobs by account
+        const directJob = {
+          jobId: result.jobId,
+          userId: user?.id || 'anonymous', // Store user ID for filtering
+          status: 'done',
+          progress: 100,
+          step: 'Complete',
+          result: {
+            final_summary: result.summary,
+            audio_transcription: result.audio_transcription || '',
+            visual_analysis: {
+              frame_captions: result.visualCaptions || [],
+            },
+            video_url: result.videoUrl,
+            summary_format: result.summaryFormat,
+          },
+          processingMode: 'direct',
+          createdAt: new Date().toISOString(),
+        };
+
+        localStorage.setItem(`direct_job_${result.jobId}`, JSON.stringify(directJob));
+
+        toast.success('Video processed successfully!', { id: 'direct-processing' });
+        
+        if (onSuccess) {
+          onSuccess(result.jobId);
+        }
+        navigate(`/job/${result.jobId}`);
+      };
+
+      // If backend is not available at all, go straight to direct processing
+      if (!useBackendFirst) {
+        if (activeTab === 'url' && url) {
+          // Download video from URL first
+          try {
+            setProcessingProgress(5);
+            setProcessingStep('Downloading video from URL...');
+            toast.loading('Downloading video from URL...', { id: 'direct-processing' });
+            const downloadedFile = await geminiService.downloadVideoFromUrl(url, (progress, step) => {
+              setProcessingProgress(progress);
+              setProcessingStep(step);
+              toast.loading(`${step} (${progress}%)`, { id: 'direct-processing' });
+            });
+            await processWithDirect(downloadedFile);
+          } catch (error: any) {
+            toast.error(error.message || 'Failed to download video from URL', { id: 'direct-processing' });
             setIsSubmitting(false);
-            return;
           }
-
-          // Store result in localStorage for JobPage to access
-          const geminiJob = {
-            jobId: result.jobId,
-            status: 'done',
-            progress: 100,
-            step: 'Complete',
-            result: {
-              final_summary: result.summary,
-              audio_transcription: result.audio_transcription || '',
-              visual_analysis: {
-                frame_captions: result.visualCaptions || [],
-              },
-              video_url: result.videoUrl,
-              summary_format: result.summaryFormat,
-            },
-            processingMode: 'gemini',
-            createdAt: new Date().toISOString(),
-          };
-
-          localStorage.setItem(`gemini_job_${result.jobId}`, JSON.stringify(geminiJob));
-
-          toast.success('Video processed successfully!', { id: 'gemini-processing' });
-          
-          // Navigate to results page
-          if (onSuccess) {
-            onSuccess(result.jobId);
-          }
-          navigate(`/job/${result.jobId}`);
         } else {
-          toast.error('Gemini mode only supports file upload, not URLs');
-          setIsSubmitting(false);
-          return;
+          await processWithDirect();
         }
         return;
       }
 
-      // Handle Backend API processing
+      // Handle Backend API processing first, with automatic fallback to direct processing on network failure
       try {
         const metadata = {
           userProfile: user ? {
@@ -219,13 +263,27 @@ const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
         }
         navigate(`/job/${jobId}`);
       } catch (error: any) {
-        // Backend not available, suggest using Gemini mode
+        // Backend not available, automatically fall back to direct processing (silently)
         if (error.code === 'ERR_NETWORK' || error.message?.includes('Network') || error.response?.status === undefined) {
-          toast.error('Backend not available. Please use Gemini Direct mode.', {
-            duration: 5000,
-          });
-          setProcessingMode('gemini');
-          setIsSubmitting(false);
+          if (activeTab === 'url' && url) {
+            // Download video from URL first
+            try {
+              setProcessingProgress(5);
+              setProcessingStep('Downloading video from URL...');
+              toast.loading('Downloading video from URL...', { id: 'direct-processing' });
+              const downloadedFile = await geminiService.downloadVideoFromUrl(url, (progress, step) => {
+                setProcessingProgress(progress);
+                setProcessingStep(step);
+                toast.loading(`${step} (${progress}%)`, { id: 'direct-processing' });
+              });
+              await processWithDirect(downloadedFile);
+            } catch (downloadError: any) {
+              toast.error(downloadError.message || 'Failed to download video from URL', { id: 'direct-processing' });
+              setIsSubmitting(false);
+            }
+          } else {
+            await processWithDirect();
+          }
           return;
         } else {
           throw error;
@@ -240,124 +298,6 @@ const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Processing Mode Selection */}
-      <div className="card bg-gradient-to-r from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20">
-        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-          Processing Mode
-        </label>
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            type="button"
-            onClick={() => setProcessingMode('backend')}
-            className={cn(
-              'p-4 rounded-xl border-2 transition-all text-left',
-              processingMode === 'backend'
-                ? 'border-primary-600 bg-primary-100 dark:bg-primary-900/30'
-                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
-            )}
-          >
-            <div className="flex items-center space-x-2 mb-2">
-              <Server className="h-5 w-5 text-primary-600" />
-              <span className="font-semibold text-gray-900 dark:text-gray-100">Backend API</span>
-            </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              Process on server with full ML models (BLIP, Whisper, OCR)
-            </p>
-            {!backendAvailable && (
-              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                ⚠️ Backend not available
-              </p>
-            )}
-            {backendAvailable && (
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                ✓ Backend connected
-              </p>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setProcessingMode('gemini')}
-            className={cn(
-              'p-4 rounded-xl border-2 transition-all text-left',
-              processingMode === 'gemini'
-                ? 'border-primary-600 bg-primary-100 dark:bg-primary-900/30'
-                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
-            )}
-          >
-            <div className="flex items-center space-x-2 mb-2">
-              <Sparkles className="h-5 w-5 text-primary-600" />
-              <span className="font-semibold text-gray-900 dark:text-gray-100">Gemini Direct</span>
-            </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              Process directly with Gemini (free tier, client-side)
-            </p>
-            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-              No backend required - works offline
-            </p>
-          </button>
-        </div>
-
-        {/* Gemini API Key Input */}
-        {processingMode === 'gemini' && (
-          <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-              Gemini API Key {isGeminiConfigured && <span className="text-green-600">✓ Configured</span>}
-            </label>
-            {!isGeminiConfigured ? (
-              <>
-                <input
-                  type="password"
-                  value={geminiApiKeyInput}
-                  onChange={(e) => setGeminiApiKeyInput(e.target.value)}
-                  placeholder="Enter your Gemini API key"
-                  className="input-field mb-2"
-                />
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Get your free API key from{' '}
-                  <a
-                    href="https://makersuite.google.com/app/apikey"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary-600 hover:underline"
-                  >
-                    Google AI Studio
-                  </a>
-                  . Key is stored locally in your browser.
-                </p>
-                {geminiApiKeyInput && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setGeminiApiKey(geminiApiKeyInput);
-                      toast.success('Gemini API key saved!');
-                    }}
-                    className="mt-2 btn-secondary text-sm"
-                  >
-                    Save API Key
-                  </button>
-                )}
-              </>
-            ) : (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  API key is configured and saved
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGeminiApiKey('');
-                    setGeminiApiKeyInput('');
-                    toast.success('API key cleared');
-                  }}
-                  className="text-sm text-red-600 hover:text-red-700"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
 
       {/* Tab Selection */}
       <div className="flex space-x-2 border-b border-gray-200 dark:border-gray-700">
@@ -391,31 +331,50 @@ const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
 
       {/* Upload/URL Input */}
       {activeTab === 'upload' ? (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select Video File
-          </label>
-          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:border-primary-400 transition-colors">
-            <div className="space-y-1 text-center">
-              <Upload className="mx-auto h-12 w-12 text-gray-400" />
-              <div className="flex text-sm text-gray-600">
-                <label className="relative cursor-pointer rounded-md font-medium text-primary-600 hover:text-primary-500">
-                  <span>Upload a file</span>
-                  <input
-                    type="file"
-                    className="sr-only"
-                    accept="video/*"
-                    onChange={handleFileChange}
-                  />
-                </label>
-                <p className="pl-1">or drag and drop</p>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Video File
+            </label>
+            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:border-primary-400 transition-colors">
+              <div className="space-y-1 text-center">
+                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                <div className="flex text-sm text-gray-600">
+                  <label className="relative cursor-pointer rounded-md font-medium text-primary-600 hover:text-primary-500">
+                    <span>Upload a file</span>
+                    <input
+                      type="file"
+                      className="sr-only"
+                      accept="video/*"
+                      onChange={handleFileChange}
+                    />
+                  </label>
+                  <p className="pl-1">or drag and drop</p>
+                </div>
+                <p className="text-xs text-gray-500">MP4, AVI, MOV up to 500MB</p>
+                {file && (
+                  <p className="text-sm text-gray-900 mt-2">{file.name}</p>
+                )}
               </div>
-              <p className="text-xs text-gray-500">MP4, AVI, MOV up to 500MB</p>
-              {file && (
-                <p className="text-sm text-gray-900 mt-2">{file.name}</p>
-              )}
             </div>
           </div>
+
+          {/* Video Preview */}
+          {previewUrl && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Video Preview
+              </label>
+              <video
+                src={previewUrl}
+                controls
+                className="w-full max-h-80 rounded-xl border border-gray-200 dark:border-gray-700"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                You can review the video here before starting the summarization.
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         <div>
@@ -474,7 +433,7 @@ const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Summary Format
           </label>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
             {SUMMARY_FORMATS.map((format) => (
               <button
                 key={format.value}
@@ -495,12 +454,35 @@ const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
         </div>
       </div>
 
+      {/* Processing progress */}
+      {processingProgress !== null && (
+        <div className="p-4 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium text-gray-800 dark:text-gray-100">
+              {processingStep || 'Processing video...'}
+            </span>
+            <span className="text-gray-700 dark:text-gray-200">
+              {processingProgress}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+            <div
+              className="h-2 rounded-full bg-primary-500 transition-all"
+              style={{ width: `${Math.min(100, Math.max(0, processingProgress))}%` }}
+            />
+          </div>
+          <p className="text-xs text-gray-600 dark:text-gray-400">
+            Processing your video...
+          </p>
+        </div>
+      )}
+
       {/* Summary Length Selection */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Summary Length (Word Count)
         </label>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           {SUMMARY_LENGTH_OPTIONS.map((option) => (
             <button
               key={option.value || 'auto'}

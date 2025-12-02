@@ -1,5 +1,5 @@
 /**
- * LocalStorage-based authentication for Gemini mode
+ * LocalStorage-based authentication for direct processing mode
  * When backend is not connected, use this for user management
  */
 
@@ -128,5 +128,7 @@ export const localStorageAuth = {
     return user;
   },
 };
+
+
 
 

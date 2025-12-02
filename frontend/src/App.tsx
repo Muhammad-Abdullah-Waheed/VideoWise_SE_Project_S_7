@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { GeminiProvider } from './contexts/GeminiContext';
+import { AIProvider } from './contexts/GeminiContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -86,13 +86,13 @@ const AppRoutes = () => {
 function App() {
   return (
     <ThemeProvider>
-      <GeminiProvider>
+      <AIProvider>
         <Router>
           <AuthProvider>
             <AppRoutes />
           </AuthProvider>
         </Router>
-      </GeminiProvider>
+      </AIProvider>
     </ThemeProvider>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Loader2, XCircle, Sparkles } from 'lucide-react';
 import { apiService, JobStatus, JobResult } from '@/services/api';
@@ -8,34 +8,57 @@ import SummaryFormatViewer from '@/components/SummaryFormatViewer';
 import ExportMenu from '@/components/ExportMenu';
 import { ExportData } from '@/utils/export';
 import { format } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 
 const JobPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [pollingInterval, setPollingInterval] = useState(2000);
   const [summaryFormat, setSummaryFormat] = useState<'paragraph' | 'bullet' | 'timeline' | 'chapters' | 'highlights'>('paragraph');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [seekTo, setSeekTo] = useState<number | undefined>(undefined);
 
-  // Check if this is a Gemini job (stored in localStorage)
-  const isGeminiJob = jobId?.startsWith('gemini_');
+  // Check if this is a direct processing job (stored in localStorage)
+  const isDirectJob = jobId?.startsWith('direct_');
   
-  // For Gemini jobs, get data from localStorage
-  const geminiJobData = isGeminiJob && jobId 
-    ? JSON.parse(localStorage.getItem(`gemini_job_${jobId}`) || 'null')
+  // For direct jobs, get data from localStorage and verify user ownership
+  const directJobData = isDirectJob && jobId 
+    ? (() => {
+        try {
+          const data = JSON.parse(localStorage.getItem(`direct_job_${jobId}`) || 'null');
+          // Verify this job belongs to the current user
+          if (data && user && data.userId !== user.id) {
+            console.warn('Job does not belong to current user');
+            navigate('/dashboard');
+            return null; // Don't allow access to other users' jobs
+          }
+          return data;
+        } catch (e) {
+          return null;
+        }
+      })()
     : null;
+
+  // Redirect if user tries to access a job that doesn't belong to them
+  useEffect(() => {
+    if (isDirectJob && directJobData && user && directJobData.userId !== user.id) {
+      navigate('/dashboard');
+    }
+  }, [isDirectJob, directJobData, user, navigate]);
 
   const { data: status, isLoading: statusLoading } = useQuery<JobStatus>({
     queryKey: ['job-status', jobId],
     queryFn: () => {
-      if (isGeminiJob && geminiJobData) {
-        // Return Gemini job status from localStorage
+      if (isDirectJob && directJobData) {
+        // Return direct job status from localStorage
         return {
-          jobId: geminiJobData.jobId,
-          status: geminiJobData.status,
-          progress: geminiJobData.progress,
-          step: geminiJobData.step,
+          jobId: directJobData.jobId,
+          status: directJobData.status || 'done',
+          progress: directJobData.progress || 100,
+          step: directJobData.step || 'Complete',
           etaSeconds: 0,
-          createdAt: geminiJobData.createdAt,
+          createdAt: directJobData.createdAt || new Date().toISOString(),
         };
       }
       return apiService.getJobStatus(jobId!);
@@ -43,7 +66,7 @@ const JobPage = () => {
     enabled: !!jobId,
     refetchInterval: (query) => {
       const data = query.state.data;
-      if (isGeminiJob) return false; // Don't poll for Gemini jobs
+      if (isDirectJob) return false; // Don't poll for direct jobs
       if (data?.status === 'done' || data?.status === 'failed') {
         return false;
       }
@@ -54,24 +77,50 @@ const JobPage = () => {
   const { data: result } = useQuery<JobResult>({
     queryKey: ['job-result', jobId],
     queryFn: () => {
-      if (isGeminiJob && geminiJobData) {
-        // Return Gemini job result from localStorage
-        const geminiResult = geminiJobData.result;
-        return {
-          jobId: geminiJobData.jobId,
-          summary: geminiResult.final_summary || '',
-          audio_transcription: geminiResult.audio_transcription || '',
-          visualCaptions: geminiResult.visual_analysis?.frame_captions || [],
-          transcript: geminiResult.audio_transcription || '',
+      if (isDirectJob && directJobData) {
+        // Return direct job result from localStorage
+        const directResult = directJobData.result;
+        const jobResult = {
+          jobId: directJobData.jobId,
+          summary: directResult.final_summary || directResult.summary || '',
+          audio_transcription: directResult.audio_transcription || '',
+          visualCaptions: directResult.visual_analysis?.frame_captions || [],
+          transcript: directResult.audio_transcription || '',
           highlights: [],
-          videoUrl: geminiResult.video_url,
-          summaryFormat: geminiResult.summary_format || 'paragraph',
+          videoUrl: directResult.video_url || directResult.videoUrl,
+          summaryFormat: directResult.summary_format || directResult.summaryFormat || 'paragraph',
         };
+        console.log('Direct job result:', jobResult);
+        return jobResult;
       }
       return apiService.getJobResult(jobId!);
     },
-    enabled: (isGeminiJob && !!geminiJobData) || status?.status === 'done',
+    enabled: !!jobId && (isDirectJob ? !!directJobData : status?.status === 'done'),
   });
+
+  // Get video URL from job metadata or result - MUST be before any conditional returns
+  useEffect(() => {
+    if (result) {
+      // Handle direct jobs (blob URL) or backend jobs (server URL)
+      if ('videoUrl' in result && (result as any).videoUrl) {
+        const url = (result as any).videoUrl;
+        // If it's a relative URL, make it absolute (backend job)
+        if (url && url.startsWith('/')) {
+          const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+          setVideoUrl(`${apiBase}${url}`);
+        } else if (url && url.startsWith('blob:')) {
+          // Direct job - blob URL
+          setVideoUrl(url);
+        } else if (url) {
+          setVideoUrl(url);
+        }
+      }
+      // Also check if we can get format from result
+      if ('summaryFormat' in result) {
+        setSummaryFormat((result as any).summaryFormat || 'paragraph');
+      }
+    }
+  }, [result]);
 
   useEffect(() => {
     if (status?.status === 'processing') {
@@ -103,30 +152,6 @@ const JobPage = () => {
       </div>
     );
   }
-
-  // Get video URL from job metadata or result
-  useEffect(() => {
-    if (result) {
-      // Handle Gemini jobs (blob URL) or backend jobs (server URL)
-      if ('videoUrl' in result && (result as any).videoUrl) {
-        const url = (result as any).videoUrl;
-        // If it's a relative URL, make it absolute (backend job)
-        if (url.startsWith('/')) {
-          const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-          setVideoUrl(`${apiBase}${url}`);
-        } else if (url.startsWith('blob:')) {
-          // Gemini job - blob URL
-          setVideoUrl(url);
-        } else {
-          setVideoUrl(url);
-        }
-      }
-      // Also check if we can get format from result
-      if ('summaryFormat' in result) {
-        setSummaryFormat((result as any).summaryFormat || 'paragraph');
-      }
-    }
-  }, [result]);
 
   // Prepare export data
   const exportData: ExportData = {
@@ -204,62 +229,67 @@ const JobPage = () => {
         </div>
       </div>
 
-      {status.status === 'done' && result && (
+      {status.status === 'done' && (
         <div className="space-y-6">
-          {/* Mode Indicator */}
-          {isGeminiJob && (
-            <div className="card bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-              <div className="flex items-center space-x-2">
-                <Sparkles className="h-5 w-5 text-blue-600" />
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  This video was processed using <strong>Gemini Direct</strong> mode (client-side processing)
-                </p>
-              </div>
+          {!result && (
+            <div className="card bg-yellow-50 border-yellow-200">
+              <p className="text-yellow-800">Loading result...</p>
             </div>
           )}
 
-          {/* Video Player */}
-          {videoUrl && (
-            <div className="card">
-              <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Video</h2>
-              <VideoPlayer
-                videoUrl={videoUrl}
-                seekTo={seekTo}
-                onSeek={(time) => setSeekTo(time)}
-                timestamps={extractTimestamps()}
-              />
-            </div>
-          )}
+          {result && (
+            <>
+              {/* Video Player */}
+              {videoUrl && (
+                <div className="card">
+                  <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Video</h2>
+                  <VideoPlayer
+                    videoUrl={videoUrl}
+                    seekTo={seekTo}
+                    onSeek={(time) => setSeekTo(time)}
+                    timestamps={extractTimestamps()}
+                  />
+                </div>
+              )}
 
-          {/* Summary Format Selector */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Summary Format</h2>
-              <div className="flex space-x-2">
-                {(['paragraph', 'bullet', 'timeline', 'chapters', 'highlights'] as const).map((format) => (
-                  <button
-                    key={format}
-                    onClick={() => setSummaryFormat(format)}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                      summaryFormat === format
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    {format.charAt(0).toUpperCase() + format.slice(1)}
-                  </button>
-                ))}
+              {/* Summary Format Selector */}
+              <div className="card">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Summary Format</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {(['paragraph', 'bullet', 'timeline', 'chapters', 'highlights'] as const).map((format) => (
+                      <button
+                        key={format}
+                        onClick={() => setSummaryFormat(format)}
+                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                          summaryFormat === format
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {format.charAt(0).toUpperCase() + format.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Summary Viewer */}
-          <SummaryFormatViewer
-            summary={result.summary}
-            format={summaryFormat}
-            transcript={result.audio_transcription}
-            visualCaptions={result.visualCaptions}
-          />
+              {/* Summary Viewer - Only show summary, no transcription or frame details */}
+              {result.summary ? (
+                <SummaryFormatViewer
+                  summary={result.summary}
+                  format={summaryFormat}
+                  transcript={undefined} // Don't show transcription
+                  visualCaptions={undefined} // Don't show frame-by-frame captions
+                />
+              ) : (
+                <div className="card bg-red-50 border-red-200">
+                  <p className="text-red-800">No summary available. Summary field is empty.</p>
+                  <p className="text-red-600 text-sm mt-2">Result data: {JSON.stringify(result, null, 2)}</p>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 

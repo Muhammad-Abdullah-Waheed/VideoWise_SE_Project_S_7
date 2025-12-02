@@ -139,34 +139,12 @@ const SummaryFormatViewer: React.FC<SummaryFormatViewerProps> = ({
         </div>
         {renderFormat()}
       </div>
-
-      {transcript && (
-        <div className="card">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900">Transcript</h2>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">{transcript}</p>
-          </div>
-        </div>
-      )}
-
-      {visualCaptions && visualCaptions.length > 0 && (
-        <div className="card">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900">Visual Captions</h2>
-          <div className="space-y-2">
-            {visualCaptions.map((caption, idx) => (
-              <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Frame {caption.frame || idx + 1}</p>
-                <p className="text-gray-900">{caption.caption}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
 export default SummaryFormatViewer;
+
 
 
 

@@ -191,3 +191,6 @@ The feature is fully integrated and works automatically:
 The Gemini Direct feature provides a complete fallback solution when the backend is unavailable, allowing users to process videos using their own Gemini API key directly in the browser. This makes the application more resilient and accessible, even without server infrastructure.
 
 
+
+
+

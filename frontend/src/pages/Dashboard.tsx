@@ -5,44 +5,65 @@ import { apiService } from '@/services/api';
 import VideoUploadForm from '@/components/VideoUploadForm';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [jobs, setJobs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadJobs();
-  }, []);
+    if (user) {
+      loadJobs();
+    } else {
+      // Clear jobs when user logs out
+      setJobs([]);
+      setIsLoading(false);
+    }
+  }, [user]);
 
   const loadJobs = async () => {
+    if (!user) return;
+    
     try {
       // Try backend first
       try {
         const response = await apiService.listJobs(20);
-        setJobs(response.jobs);
+        // Backend should already filter by user, but ensure it
+        setJobs(response.jobs.filter((job: any) => job.userId === user.id || !job.userId));
       } catch (error) {
-        // Backend not available, load from localStorage (Gemini jobs)
-        const geminiJobs: any[] = [];
+        // Backend not available, load from localStorage (filtered by user ID)
+        const directJobs: any[] = [];
+        const currentUserId = user.id;
+        
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (key?.startsWith('gemini_job_')) {
-            const jobData = JSON.parse(localStorage.getItem(key) || '{}');
-            geminiJobs.push({
-              id: jobData.jobId,
-              status: jobData.status,
-              progress: jobData.progress,
-              step: jobData.step,
-              createdAt: jobData.createdAt,
-              summaryStyle: 'gemini',
-            });
+          if (key?.startsWith('direct_job_')) {
+            try {
+              const jobData = JSON.parse(localStorage.getItem(key) || '{}');
+              // Only include jobs for the current user
+              if (jobData.userId === currentUserId) {
+                directJobs.push({
+                  id: jobData.jobId,
+                  status: jobData.status,
+                  progress: jobData.progress,
+                  step: jobData.step,
+                  createdAt: jobData.createdAt,
+                  summaryStyle: 'direct',
+                });
+              }
+            } catch (e) {
+              // Skip invalid entries
+              console.warn('Invalid job data in localStorage:', key);
+            }
           }
         }
         // Sort by date (newest first)
-        geminiJobs.sort((a, b) => 
+        directJobs.sort((a, b) => 
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-        setJobs(geminiJobs.slice(0, 20));
+        setJobs(directJobs.slice(0, 20));
       }
     } catch (error) {
       toast.error('Failed to load jobs');
@@ -126,9 +147,6 @@ const Dashboard = () => {
                     <div>
                       <p className="font-medium text-gray-900 dark:text-gray-100">
                         Job {job.id.slice(0, 8)}
-                        {job.id.startsWith('gemini_') && (
-                          <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">(Gemini)</span>
-                        )}
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {format(new Date(job.createdAt), 'MMM d, yyyy h:mm a')}

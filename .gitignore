@@ -16,10 +16,10 @@ ENV/
 instance/
 .webassets-cache
 
-# # Environment
-# .env
-# .env.local
-# .env.*.local
+# Environment
+.env
+.env.local
+.env.*.local
 
 # Node
 node_modules/
