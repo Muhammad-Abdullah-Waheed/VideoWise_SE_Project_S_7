@@ -274,13 +274,11 @@ const JobPage = () => {
                 </div>
               </div>
 
-              {/* Summary Viewer - Only show summary, no transcription or frame details */}
+              {/* Summary Viewer - Only show summary */}
               {result.summary ? (
                 <SummaryFormatViewer
                   summary={result.summary}
                   format={summaryFormat}
-                  transcript={undefined} // Don't show transcription
-                  visualCaptions={undefined} // Don't show frame-by-frame captions
                 />
               ) : (
                 <div className="card bg-red-50 border-red-200">
