@@ -55,6 +55,53 @@ class AIService {
   }
 
   /**
+   * Test if an API key is working by making a simple request
+   */
+  async testApiKey(apiKey: string): Promise<boolean> {
+    try {
+      const testAI = new GoogleGenAI({ apiKey });
+      // Try a simple generateContent call to test the key
+      const response = await testAI.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: createUserContent(["Say 'test'"]),
+      });
+      // If we get a response, the key is valid
+      return !!response.text;
+    } catch (error: any) {
+      // Check if it's an auth error (invalid key) vs other errors
+      const errorMessage = error?.message || '';
+      if (errorMessage.includes('API_KEY') || errorMessage.includes('401') || errorMessage.includes('403')) {
+        return false; // Invalid key
+      }
+      // Other errors might be temporary, but we'll still consider it failed
+      return false;
+    }
+  }
+
+  /**
+   * Try multiple API keys in order and use the first one that works
+   */
+  async initializeWithFallback(apiKeys: string[]): Promise<string | null> {
+    for (let i = 0; i < apiKeys.length; i++) {
+      const key = apiKeys[i]?.trim();
+      if (!key) continue;
+
+      console.log(`Testing API key ${i + 1}...`);
+      const isValid = await this.testApiKey(key);
+      
+      if (isValid) {
+        console.log(`✅ API key ${i + 1} is working!`);
+        this.initialize(key);
+        return key;
+      } else {
+        console.warn(`❌ API key ${i + 1} failed, trying next...`);
+      }
+    }
+    
+    throw new Error('All API keys failed. Please check your API keys in the .env file.');
+  }
+
+  /**
    * Download video from URL and convert to File object
    */
   async downloadVideoFromUrl(url: string, onProgress?: (progress: number, step: string) => void): Promise<File> {

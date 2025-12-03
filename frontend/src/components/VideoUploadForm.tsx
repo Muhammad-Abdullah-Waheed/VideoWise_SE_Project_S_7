@@ -70,20 +70,51 @@ const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
     checkBackend();
   }, []);
 
-  const ensureAIServiceInitialized = () => {
-    // Prefer env-based key; fall back to any previously stored local key
-    const envKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-    const storedKey = localStorage.getItem('ai_api_key') || undefined;
-    const apiKeyToUse = envKey || storedKey;
-
-    if (!apiKeyToUse) {
-      throw new Error('API key is not configured. Set VITE_GEMINI_API_KEY in your frontend .env file.');
+  const ensureAIServiceInitialized = async () => {
+    // If already initialized, skip
+    if (geminiService.isInitialized()) {
+      return;
     }
 
-    if (!geminiService.isInitialized()) {
-      geminiService.initialize(apiKeyToUse);
-      // Cache in localStorage so refreshes keep working without re-reading env
-      localStorage.setItem('ai_api_key', apiKeyToUse);
+    // Check if we have a working key stored
+    const storedKey = localStorage.getItem('ai_api_key');
+    if (storedKey) {
+      // Test if stored key still works
+      const isValid = await geminiService.testApiKey(storedKey);
+      if (isValid) {
+        geminiService.initialize(storedKey);
+        return;
+      } else {
+        // Stored key is invalid, remove it
+        localStorage.removeItem('ai_api_key');
+      }
+    }
+
+    // Collect all API keys from environment variables (primary + fallbacks)
+    const apiKeys: string[] = [];
+    
+    // Primary key
+    const envKey1 = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+    if (envKey1) apiKeys.push(envKey1);
+    
+    // Fallback key 1
+    const envKey2 = import.meta.env.VITE_GEMINI_API_KEY_2 as string | undefined;
+    if (envKey2) apiKeys.push(envKey2);
+    
+    // Fallback key 2
+    const envKey3 = import.meta.env.VITE_GEMINI_API_KEY_3 as string | undefined;
+    if (envKey3) apiKeys.push(envKey3);
+
+    if (apiKeys.length === 0) {
+      throw new Error('No API keys configured. Set VITE_GEMINI_API_KEY (and optionally VITE_GEMINI_API_KEY_2, VITE_GEMINI_API_KEY_3) in your frontend .env file.');
+    }
+
+    // Try all keys in order, use the first one that works
+    const workingKey = await geminiService.initializeWithFallback(apiKeys);
+    
+    if (workingKey) {
+      // Cache the working key in localStorage
+      localStorage.setItem('ai_api_key', workingKey);
     }
   };
 
@@ -129,7 +160,7 @@ const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
         }
 
         try {
-          ensureAIServiceInitialized();
+          await ensureAIServiceInitialized();
         } catch (err: any) {
           toast.error(err.message || 'API key not configured');
           setIsSubmitting(false);
