@@ -31,7 +31,9 @@ const Signup = () => {
       toast.success('Account created successfully!');
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Signup failed');
+      // Show user-friendly error message
+      const errorMessage = error.message || error.response?.data?.error || 'Signup failed. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

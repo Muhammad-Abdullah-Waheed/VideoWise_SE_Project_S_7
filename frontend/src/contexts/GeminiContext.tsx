@@ -11,8 +11,10 @@ const AIContext = createContext<AIContextType | undefined>(undefined);
 
 export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [apiKey, setApiKeyState] = useState<string | null>(() => {
-    // Load from localStorage
-    return localStorage.getItem('ai_api_key');
+    // Prefer environment variable, fallback to localStorage
+    const envKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+    const storedKey = localStorage.getItem('ai_api_key');
+    return envKey || storedKey || null;
   });
 
   useEffect(() => {

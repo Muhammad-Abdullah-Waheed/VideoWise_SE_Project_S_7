@@ -91,28 +91,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [useBackend]);
 
   const login = async (email: string, password: string) => {
+    // Check backend availability first
+    let backendAvailable = useBackend;
     if (useBackend) {
+      try {
+        const healthCheck = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/health`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(2000), // 2 second timeout
+        });
+        backendAvailable = healthCheck.ok;
+      } catch (error) {
+        backendAvailable = false;
+      }
+    }
+
+    if (backendAvailable) {
       try {
         const response = await apiService.login(email, password);
         setToken(response.token);
         setUser(response.user);
         localStorage.setItem('token', response.token);
         localStorage.setItem('user', JSON.stringify(response.user));
+        setUseBackendState(true);
+        localStorage.setItem('use_backend', 'true');
+        return; // Success, exit early
       } catch (error) {
-        // If backend fails, fallback to localStorage
-        const localUser = localStorageAuth.login(email, password);
-        setUser({
-          id: localUser.id,
-          name: localUser.name,
-          email: localUser.email,
-          role: localUser.role,
-          expertise: localUser.expertise,
-        });
-        setUseBackendState(false);
-        localStorage.setItem('use_backend', 'false');
+        // Backend failed, fallback to localStorage
+        backendAvailable = false;
       }
-    } else {
-      // Use localStorage auth
+    }
+
+    // Use localStorage auth (either backend is down or backend call failed)
+    try {
       const localUser = localStorageAuth.login(email, password);
       setUser({
         id: localUser.id,
@@ -121,32 +131,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         role: localUser.role,
         expertise: localUser.expertise,
       });
+      setUseBackendState(false);
+      localStorage.setItem('use_backend', 'false');
+    } catch (error: any) {
+      // Re-throw localStorage auth errors (e.g., user not found, invalid password)
+      throw new Error(error.message || 'Login failed');
     }
   };
 
   const signup = async (name: string, email: string, password: string, role?: string, expertise?: string[]) => {
+    // Check backend availability first
+    let backendAvailable = useBackend;
     if (useBackend) {
+      try {
+        const healthCheck = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/health`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(2000), // 2 second timeout
+        });
+        backendAvailable = healthCheck.ok;
+      } catch (error) {
+        backendAvailable = false;
+      }
+    }
+
+    if (backendAvailable) {
       try {
         const response = await apiService.signup({ name, email, password, role, expertise });
         setToken(response.token);
         setUser(response.user);
         localStorage.setItem('token', response.token);
         localStorage.setItem('user', JSON.stringify(response.user));
+        setUseBackendState(true);
+        localStorage.setItem('use_backend', 'true');
+        return; // Success, exit early
       } catch (error) {
-        // If backend fails, fallback to localStorage
-        const localUser = localStorageAuth.createAccount(name, email, password, role, expertise);
-        setUser({
-          id: localUser.id,
-          name: localUser.name,
-          email: localUser.email,
-          role: localUser.role,
-          expertise: localUser.expertise,
-        });
-        setUseBackendState(false);
-        localStorage.setItem('use_backend', 'false');
+        // Backend failed, fallback to localStorage
+        backendAvailable = false;
       }
-    } else {
-      // Use localStorage auth
+    }
+
+    // Use localStorage auth (either backend is down or backend call failed)
+    try {
       const localUser = localStorageAuth.createAccount(name, email, password, role, expertise);
       setUser({
         id: localUser.id,
@@ -155,6 +180,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         role: localUser.role,
         expertise: localUser.expertise,
       });
+      setUseBackendState(false);
+      localStorage.setItem('use_backend', 'false');
+    } catch (error: any) {
+      // Re-throw localStorage auth errors (e.g., user already exists)
+      throw new Error(error.message || 'Signup failed');
     }
   };
 
