@@ -437,7 +437,7 @@ The summary should:
     filename?: string
   ): Promise<File> {
     try {
-      onProgress?.(onProgress ? 50 : 10, 'Fetching video from URL...');
+      onProgress?.(10, 'Fetching video from URL...');
       
       const response = await fetch(url, {
         method: 'GET',
@@ -450,8 +450,7 @@ The summary should:
       const contentLength = response.headers.get('content-length');
       const total = contentLength ? parseInt(contentLength, 10) : 0;
 
-      const startProgress = onProgress ? 50 : 30;
-      onProgress?.(startProgress, 'Downloading video...');
+      onProgress?.(30, 'Downloading video...');
 
       const reader = response.body?.getReader();
       if (!reader) {
@@ -470,11 +469,11 @@ The summary should:
         receivedLength += value.length;
         
         if (total > 0) {
-          const progress = startProgress + Math.floor((receivedLength / total) * (100 - startProgress - 10));
+          const progress = 30 + Math.floor((receivedLength / total) * 60);
           onProgress?.(progress, `Downloading video... ${Math.floor((receivedLength / total) * 100)}%`);
         } else {
           // If we don't know total size, estimate progress
-          const estimatedProgress = startProgress + Math.min(40, Math.floor(receivedLength / 1000000) * 5);
+          const estimatedProgress = 30 + Math.min(40, Math.floor(receivedLength / 1000000) * 5);
           onProgress?.(estimatedProgress, `Downloading video... (${Math.floor(receivedLength / 1024 / 1024)}MB)`);
         }
       }
