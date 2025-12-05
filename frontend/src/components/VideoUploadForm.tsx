@@ -230,7 +230,14 @@ const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
       // If backend is not available at all, go straight to direct processing
       if (!useBackendFirst) {
         if (activeTab === 'url' && url) {
-          // Download video from URL first
+          // Check if it's a YouTube URL
+          if (geminiService.isYouTubeUrl(url)) {
+            toast.error('YouTube URLs require the backend server. Please start the backend server or upload the video file directly.', { id: 'direct-processing', duration: 6000 });
+            setIsSubmitting(false);
+            return;
+          }
+          
+          // Download video from URL first (for direct video URLs only)
           try {
             setProcessingProgress(5);
             setProcessingStep('Downloading video from URL...');
@@ -297,7 +304,14 @@ const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
         // Backend not available, automatically fall back to direct processing (silently)
         if (error.code === 'ERR_NETWORK' || error.message?.includes('Network') || error.response?.status === undefined) {
           if (activeTab === 'url' && url) {
-            // Download video from URL first
+            // Check if it's a YouTube URL
+            if (geminiService.isYouTubeUrl(url)) {
+              toast.error('YouTube URLs require the backend server. Please start the backend server or upload the video file directly.', { id: 'direct-processing', duration: 6000 });
+              setIsSubmitting(false);
+              return;
+            }
+            
+            // Download video from URL first (for direct video URLs only)
             try {
               setProcessingProgress(5);
               setProcessingStep('Downloading video from URL...');
@@ -416,10 +430,13 @@ const VideoUploadForm: React.FC<VideoUploadFormProps> = ({ onSuccess }) => {
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://youtube.com/watch?v=..."
+            placeholder="https://youtube.com/watch?v=... or direct video URL"
             className="input-field"
             required
           />
+          <p className="text-xs text-gray-500 mt-1">
+            Supports YouTube URLs (requires backend) or direct video links (MP4, etc.)
+          </p>
         </div>
       )}
 

@@ -102,10 +102,29 @@ class AIService {
   }
 
   /**
+   * Check if URL is a YouTube URL
+   */
+  isYouTubeUrl(url: string): boolean {
+    try {
+      const urlObj = new URL(url);
+      const hostname = urlObj.hostname.toLowerCase();
+      return hostname.includes('youtube.com') || hostname.includes('youtu.be');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Download video from URL and convert to File object
+   * Note: YouTube URLs require backend - this function only works for direct video URLs
    */
   async downloadVideoFromUrl(url: string, onProgress?: (progress: number, step: string) => void): Promise<File> {
     try {
+      // Check if it's a YouTube URL
+      if (this.isYouTubeUrl(url)) {
+        throw new Error('YouTube URLs require backend server. Please ensure the backend is running, or upload the video file directly.');
+      }
+
       onProgress?.(5, 'Downloading video from URL...');
       
       const response = await fetch(url);

@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional
 import sqlite3
 from pathlib import Path
+import yt_dlp
 
 # Import video processor
 from video_processor import VideoProcessor
@@ -418,7 +419,7 @@ def upload_video():
 @app.route('/videos/from-url', methods=['POST'])
 @jwt_required()
 def summarize_from_url():
-    """Summarize video from URL"""
+    """Summarize video from URL (supports YouTube and other video URLs)"""
     try:
         data = request.get_json()
         url = data.get('url')
@@ -429,7 +430,8 @@ def summarize_from_url():
         user_id = get_jwt_identity()
         num_frames = data.get('num_frames', 10)
         summary_style = data.get('summary_style', 'default')
-        summary_length_words = data.get('summary_length_words')  # New parameter
+        summary_format = data.get('summary_format', 'paragraph')
+        summary_length_words = data.get('summary_length_words')
         metadata = data.get('metadata', {})
         
         # Get user profile
@@ -447,9 +449,104 @@ def summarize_from_url():
                 'summaryPreferences': json.loads(user_data[1]) if user_data[1] else {}
             }
         
-        # Download video (placeholder - implement yt-dlp or similar)
-        # For now, return error
-        return jsonify({'error': 'URL download not yet implemented. Please upload video file.'}), 501
+        # Download video using yt-dlp
+        try:
+            # Create temporary directory for downloads
+            download_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'downloads')
+            os.makedirs(download_dir, exist_ok=True)
+            
+            # Configure yt-dlp options
+            ydl_opts = {
+                'format': 'best[ext=mp4]/best',  # Prefer MP4, fallback to best available
+                'outtmpl': os.path.join(download_dir, '%(title)s.%(ext)s'),
+                'quiet': False,
+                'no_warnings': False,
+            }
+            
+            # Download video
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                # Extract info first to get the filename
+                info = ydl.extract_info(url, download=False)
+                video_title = info.get('title', 'video')
+                video_ext = info.get('ext', 'mp4')
+                
+                # Sanitize filename
+                safe_title = "".join(c for c in video_title if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                safe_title = safe_title[:100]  # Limit length
+                expected_filename = f"{safe_title}.{video_ext}"
+                expected_path = os.path.join(download_dir, expected_filename)
+                
+                # Download the video
+                ydl.download([url])
+                
+                # Find the actual downloaded file (yt-dlp may modify the filename)
+                downloaded_files = [f for f in os.listdir(download_dir) if f.endswith(('.mp4', '.webm', '.mkv', '.avi', '.mov'))]
+                if not downloaded_files:
+                    return jsonify({'error': 'Failed to download video file'}), 500
+                
+                # Get the most recently modified file (should be the one we just downloaded)
+                downloaded_files.sort(key=lambda x: os.path.getmtime(os.path.join(download_dir, x)), reverse=True)
+                downloaded_filename = downloaded_files[0]
+                video_path = os.path.join(download_dir, downloaded_filename)
+                
+                # Rename to a unique filename to avoid conflicts
+                unique_filename = f"{uuid.uuid4()}_{secure_filename(downloaded_filename)}"
+                final_video_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                os.rename(video_path, final_video_path)
+                video_path = final_video_path
+                
+        except Exception as download_error:
+            error_msg = str(download_error)
+            if 'Private video' in error_msg or 'Sign in' in error_msg:
+                return jsonify({'error': 'This video is private or requires authentication. Please use a public video URL.'}), 400
+            elif 'Video unavailable' in error_msg or 'does not exist' in error_msg:
+                return jsonify({'error': 'Video not found or unavailable. Please check the URL.'}), 404
+            elif 'Unsupported URL' in error_msg:
+                return jsonify({'error': 'Unsupported video URL. Please use YouTube, Vimeo, or direct video links.'}), 400
+            else:
+                return jsonify({'error': f'Failed to download video: {error_msg}'}), 500
+        
+        # Create job
+        job_id = str(uuid.uuid4())
+        jobs[job_id] = {
+            'id': job_id,
+            'user_id': user_id,
+            'status': 'queued',
+            'progress': 0,
+            'step': 'Queued',
+            'video_path': video_path,
+            'num_frames': num_frames,
+            'summary_style': summary_style,
+            'summary_format': summary_format,
+            'summary_length_words': summary_length_words,
+            'metadata': metadata
+        }
+        
+        # Save job to database
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        # Add summary_format column if it doesn't exist
+        try:
+            c.execute('ALTER TABLE jobs ADD COLUMN summary_format TEXT')
+        except:
+            pass  # Column already exists
+        c.execute('''INSERT INTO jobs (id, user_id, status, progress, step, video_path, num_frames, 
+                     summary_style, summary_format, summary_length_words, metadata)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                 (job_id, user_id, 'queued', 0, 'Queued', video_path, num_frames, 
+                  summary_style, summary_format, summary_length_words, json.dumps(metadata)))
+        conn.commit()
+        conn.close()
+        
+        # Start processing in background
+        thread = threading.Thread(
+            target=process_video_job,
+            args=(job_id, video_path, num_frames, summary_style, summary_format, summary_length_words, user_profile)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({'jobId': job_id}), 202
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
