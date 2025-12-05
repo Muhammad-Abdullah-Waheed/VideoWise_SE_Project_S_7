@@ -20,12 +20,14 @@ const JobPage = () => {
   const [seekTo, setSeekTo] = useState<number | undefined>(undefined);
 
   // Check if this is a direct processing job (stored in localStorage)
-  const isDirectJob = jobId?.startsWith('direct_');
+  // Jobs can start with 'direct_' or 'gemini_' - both are direct processing jobs
+  const isDirectJob = jobId?.startsWith('direct_') || jobId?.startsWith('gemini_');
   
   // For direct jobs, get data from localStorage and verify user ownership
   const directJobData = isDirectJob && jobId 
     ? (() => {
         try {
+          // Jobs are stored with 'direct_job_' prefix regardless of jobId prefix
           const data = JSON.parse(localStorage.getItem(`direct_job_${jobId}`) || 'null');
           // Verify this job belongs to the current user
           if (data && user && data.userId !== user.id) {
@@ -141,10 +143,32 @@ const JobPage = () => {
   }
 
   if (!status) {
+    // If it's a direct job but not found in localStorage, show helpful message
+    if (isDirectJob && !directJobData) {
+      return (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="card text-center">
+            <p className="text-gray-500 dark:text-gray-400">Job not found in local storage.</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+              This may happen if you cleared your browser data or are using a different device.
+            </p>
+            <Link to="/dashboard" className="text-primary-600 hover:text-primary-700 mt-4 inline-block">
+              Back to Dashboard
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="card text-center">
-          <p className="text-gray-500">Job not found</p>
+          <p className="text-gray-500 dark:text-gray-400">Job not found</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+            {isDirectJob 
+              ? 'The job may have been cleared from local storage or you may be on a different device.'
+              : 'The job may not exist or the backend server may be unavailable.'}
+          </p>
           <Link to="/dashboard" className="text-primary-600 hover:text-primary-700 mt-4 inline-block">
             Back to Dashboard
           </Link>
