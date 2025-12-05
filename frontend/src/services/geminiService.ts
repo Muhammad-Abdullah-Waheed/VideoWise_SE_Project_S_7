@@ -1,5 +1,5 @@
 /**
- * AI Direct Service - Client-side video processing using AI API
+ * Gemini Direct Service - Client-side video processing using Gemini API
  * This allows users to process videos directly in the browser without backend
  */
 
@@ -9,7 +9,7 @@ import {
   createPartFromUri,
 } from "@google/genai";
 
-export interface AIConfig {
+export interface GeminiConfig {
   apiKey: string;
 }
 
@@ -41,7 +41,7 @@ export interface ProcessingResult {
   summaryFormat?: string;
 }
 
-class AIService {
+class GeminiService {
   private ai: GoogleGenAI | null = null;
   private apiKey: string | null = null;
 
@@ -52,126 +52,6 @@ class AIService {
 
   isInitialized(): boolean {
     return this.ai !== null && this.apiKey !== null;
-  }
-
-  /**
-   * Test if an API key is working by making a simple request
-   */
-  async testApiKey(apiKey: string): Promise<boolean> {
-    try {
-      const testAI = new GoogleGenAI({ apiKey });
-      // Try a simple generateContent call to test the key
-      const response = await testAI.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: createUserContent(["Say 'test'"]),
-      });
-      // If we get a response, the key is valid
-      return !!response.text;
-    } catch (error: any) {
-      // Check if it's an auth error (invalid key) vs other errors
-      const errorMessage = error?.message || '';
-      if (errorMessage.includes('API_KEY') || errorMessage.includes('401') || errorMessage.includes('403')) {
-        return false; // Invalid key
-      }
-      // Other errors might be temporary, but we'll still consider it failed
-      return false;
-    }
-  }
-
-  /**
-   * Try multiple API keys in order and use the first one that works
-   */
-  async initializeWithFallback(apiKeys: string[]): Promise<string | null> {
-    for (let i = 0; i < apiKeys.length; i++) {
-      const key = apiKeys[i]?.trim();
-      if (!key) continue;
-
-      console.log(`Testing API key ${i + 1}...`);
-      const isValid = await this.testApiKey(key);
-      
-      if (isValid) {
-        console.log(`✅ API key ${i + 1} is working!`);
-        this.initialize(key);
-        return key;
-      } else {
-        console.warn(`❌ API key ${i + 1} failed, trying next...`);
-      }
-    }
-    
-    throw new Error('All API keys failed. Please check your API keys in the .env file.');
-  }
-
-  /**
-   * Check if URL is a YouTube URL
-   */
-  isYouTubeUrl(url: string): boolean {
-    try {
-      const urlObj = new URL(url);
-      const hostname = urlObj.hostname.toLowerCase();
-      return hostname.includes('youtube.com') || hostname.includes('youtu.be');
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Download video from URL and convert to File object
-   * Note: YouTube URLs require backend - this function only works for direct video URLs
-   */
-  async downloadVideoFromUrl(url: string, onProgress?: (progress: number, step: string) => void): Promise<File> {
-    try {
-      // Check if it's a YouTube URL
-      if (this.isYouTubeUrl(url)) {
-        throw new Error('YouTube URLs require backend server. Please ensure the backend is running, or upload the video file directly.');
-      }
-
-      onProgress?.(5, 'Downloading video from URL...');
-      
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to download video: ${response.statusText}`);
-      }
-
-      const contentLength = response.headers.get('content-length');
-      const total = contentLength ? parseInt(contentLength, 10) : 0;
-      
-      const reader = response.body?.getReader();
-      const chunks: Uint8Array[] = [];
-      let receivedLength = 0;
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          chunks.push(value);
-          receivedLength += value.length;
-          
-          if (total > 0) {
-            const progress = Math.round((receivedLength / total) * 90) + 5; // 5-95%
-            onProgress?.(progress, `Downloading video... ${Math.round((receivedLength / total) * 100)}%`);
-          }
-        }
-      }
-
-      // Combine all chunks into a single Uint8Array
-      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-      const combined = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const chunk of chunks) {
-        combined.set(chunk, offset);
-        offset += chunk.length;
-      }
-      
-      const blob = new Blob([combined]);
-      const fileName = url.split('/').pop()?.split('?')[0] || 'video.mp4';
-      const mimeType = blob.type || 'video/mp4';
-      
-      onProgress?.(95, 'Video downloaded');
-      return new File([blob], fileName, { type: mimeType });
-    } catch (error: any) {
-      throw new Error(`Failed to download video from URL: ${error.message}`);
-    }
   }
 
   /**
@@ -285,7 +165,7 @@ The summary should:
   }
 
   /**
-   * Process video using AI File API (matching the new SDK pattern)
+   * Process video using Gemini File API (matching the new SDK pattern)
    * Uploads video file, waits for processing, then generates summary with all user options
    */
   async processVideo(
@@ -294,11 +174,11 @@ The summary should:
     onProgress?: (progress: number, step: string) => void
   ): Promise<ProcessingResult> {
     if (!this.isInitialized()) {
-      throw new Error('AI API not initialized. Please provide your API key.');
+      throw new Error('Gemini API not initialized. Please provide your API key.');
     }
 
     if (!this.ai) {
-      throw new Error('AI service not initialized');
+      throw new Error('Gemini not initialized');
     }
 
     let uploadedFile: any = null;
@@ -356,7 +236,7 @@ The summary should:
         userProfile: options.userProfile,
       });
 
-      onProgress?.(70, 'Generating summary...');
+      onProgress?.(70, 'Generating summary with Gemini...');
 
       // Step 4: Generate Content (matching the new SDK pattern)
       const response = await this.ai.models.generateContent({
@@ -399,7 +279,7 @@ The summary should:
       }
 
       // Generate job ID
-      const jobId = `direct_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const jobId = `gemini_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       // Create video URL from file
       const videoUrl = URL.createObjectURL(videoFile);
@@ -426,12 +306,245 @@ The summary should:
       }
 
       return {
-        jobId: `direct_error_${Date.now()}`,
+        jobId: `gemini_error_${Date.now()}`,
         summary: '',
         status: 'failed',
       };
     }
   }
+
+  /**
+   * Extract YouTube video ID from URL
+   */
+  private extractYouTubeVideoId(url: string): string | null {
+    const patterns = [
+      /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i,
+      /youtube\.com\/watch\?v=([^"&?\/\s]{11})/i,
+      /youtu\.be\/([^"&?\/\s]{11})/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    return null;
+  }
+
+
+  /**
+   * Download video from URL (YouTube, direct URLs, etc.)
+   * Works even when backend is down by using public APIs for YouTube
+   */
+  async downloadVideoFromUrl(
+    url: string,
+    onProgress?: (progress: number, step: string) => void
+  ): Promise<File> {
+    // Check if it's a YouTube URL
+    const videoId = this.extractYouTubeVideoId(url);
+    
+    if (videoId) {
+      // YouTube video - use API service to get download URL
+      try {
+        onProgress?.(10, 'Processing YouTube URL...');
+        
+        // Try multiple YouTube download API services
+        let downloadUrl: string | null = null;
+        let lastError: string | null = null;
+        
+        // Method 1: Try vevioz API (convert endpoint)
+        try {
+          onProgress?.(15, 'Connecting to video service (method 1)...');
+          const response = await fetch(`https://api.vevioz.com/api/convert/mp4/${videoId}`, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.url || data.downloadUrl) {
+              downloadUrl = data.url || data.downloadUrl;
+              onProgress?.(25, 'Found video download URL');
+            }
+          }
+        } catch (e: any) {
+          lastError = e.message || 'Method 1 failed';
+        }
+        
+        // Method 2: Try vevioz API (formats endpoint)
+        if (!downloadUrl) {
+          try {
+            onProgress?.(20, 'Trying alternative service (method 2)...');
+            const response = await fetch(`https://api.vevioz.com/api/formats/${videoId}`, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+              },
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              if (data.formats && Array.isArray(data.formats)) {
+                // Find best quality MP4 format with both video and audio
+                const mp4Format = data.formats.find((f: any) => 
+                  f.ext === 'mp4' && f.vcodec !== 'none' && f.acodec !== 'none'
+                ) || data.formats.find((f: any) => f.ext === 'mp4' && f.vcodec !== 'none');
+                
+                if (mp4Format && mp4Format.url) {
+                  downloadUrl = mp4Format.url;
+                  onProgress?.(25, 'Found video download URL');
+                }
+              }
+            }
+          } catch (e: any) {
+            lastError = e.message || 'Method 2 failed';
+          }
+        }
+        
+        if (!downloadUrl) {
+          throw new Error(
+            `Unable to download YouTube video. ${lastError || 'All download services are unavailable'}. ` +
+            `Please try one of these alternatives:\n` +
+            `1. Ensure your backend server is running (YouTube downloads work better with backend)\n` +
+            `2. Download the video manually and upload the file directly\n` +
+            `3. Try a different YouTube video`
+          );
+        }
+        
+        onProgress?.(30, 'Downloading YouTube video...');
+        
+        // Download the video using the obtained URL
+        return await this.downloadDirectVideoUrl(downloadUrl, onProgress, `youtube_${videoId}.mp4`);
+      } catch (error: any) {
+        // Provide helpful error message
+        throw new Error(error.message || 'Failed to download YouTube video');
+      }
+    }
+
+    // For direct video URLs (mp4, etc.), download directly
+    return await this.downloadDirectVideoUrl(url, onProgress);
+  }
+
+  /**
+   * Download video from a direct URL (mp4, etc.)
+   */
+  private async downloadDirectVideoUrl(
+    url: string,
+    onProgress?: (progress: number, step: string) => void,
+    filename?: string
+  ): Promise<File> {
+    try {
+      onProgress?.(onProgress ? 50 : 10, 'Fetching video from URL...');
+      
+      const response = await fetch(url, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to download video: ${response.statusText}`);
+      }
+
+      const contentLength = response.headers.get('content-length');
+      const total = contentLength ? parseInt(contentLength, 10) : 0;
+
+      const startProgress = onProgress ? 50 : 30;
+      onProgress?.(startProgress, 'Downloading video...');
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Response body is not readable');
+      }
+
+      const chunks: Uint8Array[] = [];
+      let receivedLength = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+        
+        chunks.push(value);
+        receivedLength += value.length;
+        
+        if (total > 0) {
+          const progress = startProgress + Math.floor((receivedLength / total) * (100 - startProgress - 10));
+          onProgress?.(progress, `Downloading video... ${Math.floor((receivedLength / total) * 100)}%`);
+        } else {
+          // If we don't know total size, estimate progress
+          const estimatedProgress = startProgress + Math.min(40, Math.floor(receivedLength / 1000000) * 5);
+          onProgress?.(estimatedProgress, `Downloading video... (${Math.floor(receivedLength / 1024 / 1024)}MB)`);
+        }
+      }
+
+      onProgress?.(90, 'Preparing video file...');
+
+      // Combine chunks into a single Uint8Array
+      const allChunks = new Uint8Array(receivedLength);
+      let position = 0;
+      for (const chunk of chunks) {
+        allChunks.set(chunk, position);
+        position += chunk.length;
+      }
+
+      // Create File object from blob
+      const blob = new Blob([allChunks], { type: 'video/mp4' });
+      
+      // Extract filename from URL or use provided/default
+      let finalFilename = filename;
+      if (!finalFilename) {
+        const urlParts = url.split('/');
+        finalFilename = urlParts[urlParts.length - 1].split('?')[0] || 'video.mp4';
+        // Ensure .mp4 extension
+        if (!finalFilename.endsWith('.mp4') && !finalFilename.endsWith('.webm') && !finalFilename.endsWith('.mov')) {
+          finalFilename = 'video.mp4';
+        }
+      }
+      
+      const file = new File([blob], finalFilename, { type: 'video/mp4' });
+
+      onProgress?.(100, 'Download complete');
+
+      return file;
+    } catch (error: any) {
+      throw new Error(`Failed to download video from URL: ${error.message}`);
+    }
+  }
+
+  /**
+   * Test if an API key is valid
+   */
+  async testApiKey(apiKey: string): Promise<boolean> {
+    try {
+      const testAi = new GoogleGenAI({ apiKey });
+      // Try a simple operation to test the key
+      await testAi.models.list();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Initialize with fallback keys - tries multiple keys and uses the first working one
+   */
+  async initializeWithFallback(apiKeys: string[]): Promise<string | null> {
+    for (const key of apiKeys) {
+      try {
+        const isValid = await this.testApiKey(key);
+        if (isValid) {
+          this.initialize(key);
+          return key;
+        }
+      } catch {
+        // Try next key
+        continue;
+      }
+    }
+    return null;
+  }
 }
 
-export const geminiService = new AIService();
+export const geminiService = new GeminiService();

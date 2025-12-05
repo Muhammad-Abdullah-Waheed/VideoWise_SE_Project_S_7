@@ -2,507 +2,440 @@
 
 ## Table of Contents
 1. [Introduction](#introduction)
-2. [Prerequisites](#prerequisites)
+2. [Getting Started](#getting-started)
 3. [Downloading and Running the Code](#downloading-and-running-the-code)
-   - [Backend Setup](#backend-setup)
-   - [Frontend Setup](#frontend-setup)
 4. [Using the Deployed Version](#using-the-deployed-version)
-5. [Features and Usage Guide](#features-and-usage-guide)
-6. [YouTube URL Support](#youtube-url-support)
-7. [Troubleshooting](#troubleshooting)
-8. [FAQs](#faqs)
+5. [Features Guide](#features-guide)
+6. [Troubleshooting](#troubleshooting)
+7. [FAQ](#faq)
 
 ---
 
 ## Introduction
 
-**VideoWise** is an AI-powered video summarization platform that automatically generates intelligent summaries of videos by analyzing audio, visual content, and on-screen text. The platform uses state-of-the-art AI models including BLIP (image captioning), Whisper (audio transcription), EasyOCR (text extraction), and advanced LLM models (Groq LLaMA and Google Gemini) to create comprehensive summaries.
+**VideoWise** is an AI-powered video summarization platform that automatically generates intelligent summaries of videos by analyzing audio, visual content, and on-screen text. Whether you're a student, professional, content creator, or researcher, VideoWise helps you quickly understand video content without watching the entire video.
 
 ### Key Features
-- **Multiple Summary Styles**: Default, Professional, Commercial, Educational, Casual, Technical
-- **Multiple Summary Formats**: Paragraph, Bullet Points, Timeline, Chapters, Key Moments
-- **Customizable Length**: Auto, Short (~100 words), Medium (~250 words), Long (~500 words), or Custom word count
-- **YouTube Support**: Download and summarize videos directly from YouTube URLs
-- **Video Player**: Watch videos with interactive timeline and key moments
-- **Export Options**: Download summaries as PDF, Word document, or Markdown
-- **User Profiles**: Personalized summaries based on your expertise and preferences
-- **Dark Mode**: Comfortable viewing in light or dark theme
-- **Offline Mode**: Process videos directly in browser using Gemini API (no backend required)
+- 🎥 **Video Upload**: Upload videos directly or provide YouTube URLs
+- 🤖 **AI-Powered Analysis**: Uses advanced AI models to analyze audio, visuals, and text
+- 📝 **Multiple Summary Formats**: Paragraph, bullet points, timeline, chapters, and highlights
+- 🎨 **Customizable Styles**: Professional, commercial, educational, casual, technical, or default
+- 📊 **Personalized Summaries**: Tailored to your expertise and preferences
+- 💾 **Export Options**: Download summaries as PDF, Word, or Markdown
+- 🌙 **Dark Mode**: Comfortable viewing in light or dark theme
+- 📱 **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
 
 ---
 
-## Prerequisites
+## Getting Started
 
-### For Running Backend Locally
-- **Python 3.8 or higher** ([Download](https://www.python.org/downloads/))
-- **pip** (Python package manager, usually comes with Python)
-- **Git** ([Download](https://git-scm.com/downloads))
-- **GPU (Recommended)**: For faster processing, though CPU will work
-- **API Keys**:
-  - **Groq API Key** (Free tier available): [Get it here](https://console.groq.com/)
-  - **Google Gemini API Key** (Free tier available): [Get it here](https://makersuite.google.com/app/apikey)
+### Prerequisites
 
-### For Running Frontend Locally
-- **Node.js 18 or higher** ([Download](https://nodejs.org/))
-- **npm** (comes with Node.js)
+**For Running Locally:**
+- **Backend**: Python 3.8+ (GPU recommended but not required)
+- **Frontend**: Node.js 18+ and npm
+- **API Keys** (optional but recommended):
+  - Groq API Key: [Get free key](https://console.groq.com/)
+  - Google Gemini API Key: [Get free key](https://makersuite.google.com/app/apikey)
 
-### For Using Deployed Version
-- **Modern Web Browser**: Chrome, Firefox, Safari, or Edge (latest versions)
-- **Internet Connection**: Required for accessing the deployed application
-- **Optional**: Google Gemini API Key (for offline/direct processing mode)
+**For Using Deployed Version:**
+- Modern web browser (Chrome, Firefox, Safari, Edge)
+- Internet connection
+- (Optional) Google Gemini API Key for direct processing mode
 
 ---
 
 ## Downloading and Running the Code
 
-### Step 1: Clone or Download the Repository
+### Step 1: Download the Code
 
 #### Option A: Using Git (Recommended)
 ```bash
-git clone https://github.com/Muhammad-Abdullah-Waheed/VideoWise_SE_Project_S_7.git
-cd VideoWise_SE_Project_S_7
+# Clone the repository
+git clone <your-repository-url>
+cd Project
 ```
 
 #### Option B: Download ZIP
-1. Go to the GitHub repository: `https://github.com/Muhammad-Abdullah-Waheed/VideoWise_SE_Project_S_7`
-2. Click the green **"Code"** button
-3. Select **"Download ZIP"**
-4. Extract the ZIP file to your desired location
-5. Open terminal/command prompt in the extracted folder
+1. Download the project ZIP file from your repository
+2. Extract it to your desired location
+3. Open terminal/command prompt in the extracted folder
 
----
+### Step 2: Backend Setup
 
-## Backend Setup
+#### Option A: Run Backend on Google Colab (Free GPU - Recommended)
 
-### Method 1: Running Backend Locally (Recommended for Development)
+**Why Colab?**
+- Free GPU access (T4 GPU)
+- No local setup required
+- Easy to share and collaborate
 
-#### Step 1: Navigate to Backend Directory
-```bash
-cd backend
-```
+**Steps:**
 
-#### Step 2: Create Virtual Environment
-**On Linux/Mac:**
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
+1. **Open Google Colab**
+   - Go to [Google Colab](https://colab.research.google.com/)
+   - Sign in with your Google account
+   - Click **File → New notebook**
 
-**On Windows:**
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
+2. **Enable GPU**
+   - Click **Runtime → Change runtime type**
+   - Select **Hardware accelerator: GPU (T4)**
+   - Click **Save**
 
-You should see `(venv)` in your terminal prompt, indicating the virtual environment is active.
+3. **Upload Backend Files**
+   - Upload `backend/app.py` to Colab
+   - Upload `backend/video_processor.py` to Colab
+   - Or copy the code into Colab cells
 
-#### Step 3: Install Dependencies
-```bash
-pip install -r requirements.txt
-```
+4. **Install Dependencies**
+   ```python
+   !pip install -q flask flask-cors flask-jwt-extended cloudflared requests torch torchvision transformers opencv-python librosa easyocr moviepy sentencepiece protobuf groq google-generativeai yt-dlp python-dotenv
+   print("✅ Dependencies installed!")
+   ```
 
-**Note**: This may take 10-15 minutes as it downloads large ML models and dependencies.
+5. **Set API Keys**
+   ```python
+   import os
+   
+   # ⚠️ REPLACE WITH YOUR ACTUAL API KEYS
+   os.environ['JWT_SECRET_KEY'] = 'your-secret-key-change-this-12345'
+   os.environ['GROQ_API_KEY'] = 'gsk_your_groq_api_key_here'
+   os.environ['GEMINI_API_KEY'] = 'your_gemini_api_key_here'
+   
+   # Configuration
+   os.environ['UPLOAD_FOLDER'] = '/content/uploads'
+   os.environ['DB_PATH'] = '/content/videowise.db'
+   os.environ['FLASK_ENV'] = 'production'
+   
+   print("✅ API keys configured")
+   ```
 
-#### Step 4: Set Up Environment Variables
-Create a `.env` file in the `backend/` directory:
+6. **Setup Cloudflare Tunnel (Get Public URL)**
+   ```python
+   import subprocess
+   import time
+   
+   print("🌐 Setting up Cloudflare Tunnel...")
+   
+   # Download cloudflared
+   !wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
+   !chmod +x cloudflared
+   
+   # Start tunnel
+   print("🚀 Starting tunnel...")
+   process = subprocess.Popen(
+       ['./cloudflared', 'tunnel', '--url', 'http://localhost:5000'],
+       stdout=subprocess.PIPE,
+       stderr=subprocess.STDOUT,
+       text=True
+   )
+   
+   time.sleep(8)
+   
+   print("\n" + "="*60)
+   print("🌐 Look for the public URL in the output above")
+   print("   It will look like: https://xxxxx.trycloudflare.com")
+   print("   ⚠️  COPY THIS URL - You'll need it for frontend!")
+   print("="*60)
+   ```
+   
+   **Copy the URL** that appears (e.g., `https://xxxxx.trycloudflare.com`)
 
-```env
-JWT_SECRET_KEY=your-secret-key-change-this-to-something-random
-GROQ_API_KEY=your-groq-api-key-here
-GEMINI_API_KEY=your-gemini-api-key-here
-UPLOAD_FOLDER=./uploads
-DB_PATH=./videowise.db
-FLASK_ENV=development
-```
+7. **Start Backend Server**
+   ```python
+   import sys
+   sys.path.insert(0, '/content')
+   
+   from app import app
+   
+   print("\n" + "="*60)
+   print("🚀 Starting VideoWise Backend Server...")
+   print("="*60)
+   
+   PUBLIC_URL = "https://xxxxx.trycloudflare.com"  # ⬅️ Use URL from step 6
+   
+   print(f"\n📍 Local URL: http://localhost:5000")
+   print(f"🌐 Public URL: {PUBLIC_URL}")
+   print(f"\n📋 Add this to frontend/.env:")
+   print(f"   VITE_API_BASE_URL={PUBLIC_URL}")
+   print("\n✅ Server is starting...")
+   print("⚠️  DO NOT CLOSE THIS CELL - Keep it running!")
+   print("="*60)
+   
+   app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+   ```
+   
+   **⚠️ IMPORTANT**: Keep this cell running! This is your server.
 
-**Important**: Replace the placeholder values with your actual API keys.
+#### Option B: Run Backend Locally
 
-#### Step 5: Create Uploads Directory
-```bash
-mkdir uploads
-mkdir uploads/downloads
-```
+1. **Navigate to Backend Directory**
+   ```bash
+   cd backend
+   ```
 
-#### Step 6: Run the Backend Server
-```bash
-python app.py
-```
+2. **Create Virtual Environment**
+   ```bash
+   # On Linux/Mac:
+   python3 -m venv venv
+   source venv/bin/activate
+   
+   # On Windows:
+   python -m venv venv
+   venv\Scripts\activate
+   ```
 
-You should see output like:
-```
-✅ Video processor initialized
-🚀 Starting VideoWise Backend Server...
-📍 Server running on http://localhost:5000
-```
+3. **Install Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-**Keep this terminal window open** - the server must stay running.
+4. **Set Environment Variables**
+   
+   Create a `.env` file in the `backend/` directory:
+   ```env
+   JWT_SECRET_KEY=your-secret-key-change-this
+   GROQ_API_KEY=your-groq-api-key
+   GEMINI_API_KEY=your-gemini-api-key
+   UPLOAD_FOLDER=./uploads
+   DB_PATH=./videowise.db
+   FLASK_ENV=development
+   ```
 
-### Method 2: Running Backend on Google Colab (Free GPU)
+5. **Run Server**
+   ```bash
+   python app.py
+   ```
+   
+   Server runs on `http://localhost:5000`
 
-#### Step 1: Open Google Colab
-1. Go to [Google Colab](https://colab.research.google.com/)
-2. Sign in with your Google account
-3. Click **File → New notebook**
+### Step 3: Frontend Setup
 
-#### Step 2: Enable GPU
-1. Click **Runtime → Change runtime type**
-2. Select **Hardware accelerator: GPU (T4)**
-3. Click **Save**
+1. **Navigate to Frontend Directory**
+   ```bash
+   cd frontend
+   ```
 
-#### Step 3: Upload Backend Files
-1. Upload `backend/app.py` and `backend/video_processor.py` to Colab
-2. Or copy their contents into Colab cells
+2. **Install Dependencies**
+   ```bash
+   npm install
+   ```
 
-#### Step 4: Install Dependencies
-Create a new cell and run:
-```python
-!pip install -q flask flask-cors flask-jwt-extended torch torchvision transformers opencv-python librosa easyocr moviepy sentencepiece protobuf groq google-generativeai yt-dlp python-dotenv
-print("✅ Dependencies installed!")
-```
+3. **Configure Environment**
+   
+   Create/update `.env` file in `frontend/` directory:
+   ```env
+   # For Colab backend:
+   VITE_API_BASE_URL=https://xxxxx.trycloudflare.com
+   
+   # OR for local backend:
+   # VITE_API_BASE_URL=http://localhost:5000
+   
+   # Optional: Gemini API keys for direct processing (fallback)
+   VITE_GEMINI_API_KEY=your_gemini_api_key_here
+   VITE_GEMINI_API_KEY_2=optional_fallback_key_1
+   VITE_GEMINI_API_KEY_3=optional_fallback_key_2
+   ```
 
-#### Step 5: Set API Keys
-Create a new cell and run:
-```python
-import os
+4. **Start Development Server**
+   ```bash
+   npm run dev
+   ```
+   
+   Frontend runs on `http://localhost:3000`
 
-os.environ['JWT_SECRET_KEY'] = 'your-secret-key-change-this'
-os.environ['GROQ_API_KEY'] = 'your-groq-api-key'
-os.environ['GEMINI_API_KEY'] = 'your-gemini-api-key'
-os.environ['UPLOAD_FOLDER'] = '/content/uploads'
-os.environ['DB_PATH'] = '/content/videowise.db'
+5. **Open in Browser**
+   - Navigate to `http://localhost:3000`
+   - You should see the VideoWise homepage
 
-print("✅ API keys configured")
-```
+### Step 4: Verify Setup
 
-#### Step 6: Setup Cloudflare Tunnel (For Public Access)
-Create a new cell and run:
-```python
-import subprocess
-import time
+1. **Test Backend**
+   - Open browser: `https://your-url.trycloudflare.com/health` (or `http://localhost:5000/health` for local)
+   - Should return: `{"status": "healthy", ...}`
 
-!wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
-!chmod +x cloudflared
-
-process = subprocess.Popen(
-    ['./cloudflared', 'tunnel', '--url', 'http://localhost:5000'],
-    stdout=subprocess.PIPE,
-    stderr=subprocess.STDOUT,
-    text=True
-)
-
-time.sleep(8)
-print("\n🌐 Look for the public URL above (https://xxxxx.trycloudflare.com)")
-print("⚠️  COPY THIS URL - You'll need it for frontend!")
-```
-
-**Copy the public URL** that appears (e.g., `https://xxxxx.trycloudflare.com`)
-
-#### Step 7: Start Backend Server
-Create a new cell and run:
-```python
-import sys
-sys.path.insert(0, '/content')
-
-from app import app
-
-print("🚀 Starting VideoWise Backend Server...")
-print("⚠️  DO NOT CLOSE THIS CELL - Keep it running!")
-
-app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
-```
-
-**Keep this cell running** - this is your server.
-
----
-
-## Frontend Setup
-
-### Step 1: Navigate to Frontend Directory
-Open a **new terminal window** (keep backend running in the other terminal) and run:
-```bash
-cd frontend
-```
-
-### Step 2: Install Dependencies
-```bash
-npm install
-```
-
-This may take 2-5 minutes.
-
-### Step 3: Configure Environment Variables
-Create a `.env` file in the `frontend/` directory:
-
-**For Local Backend:**
-```env
-VITE_API_BASE_URL=http://localhost:5000
-VITE_GEMINI_API_KEY=your-gemini-api-key-here
-VITE_GEMINI_API_KEY_2=optional-second-key
-VITE_GEMINI_API_KEY_3=optional-third-key
-```
-
-**For Colab/Remote Backend:**
-```env
-VITE_API_BASE_URL=https://xxxxx.trycloudflare.com
-VITE_GEMINI_API_KEY=your-gemini-api-key-here
-VITE_GEMINI_API_KEY_2=optional-second-key
-VITE_GEMINI_API_KEY_3=optional-third-key
-```
-
-**Important**: 
-- Replace `https://xxxxx.trycloudflare.com` with your actual backend URL
-- Replace `your-gemini-api-key-here` with your actual Gemini API key
-- The additional API keys (`VITE_GEMINI_API_KEY_2`, `VITE_GEMINI_API_KEY_3`) are optional fallbacks
-
-### Step 4: Start Development Server
-```bash
-npm run dev
-```
-
-You should see output like:
-```
-  VITE v5.x.x  ready in xxx ms
-
-  ➜  Local:   http://localhost:3000/
-  ➜  Network: use --host to expose
-```
-
-### Step 5: Open in Browser
-Open your web browser and navigate to:
-```
-http://localhost:3000
-```
-
-You should see the VideoWise homepage!
+2. **Test Frontend**
+   - Open `http://localhost:3000`
+   - Sign up for a new account
+   - Upload a test video
+   - Wait for processing
+   - View summary
 
 ---
 
 ## Using the Deployed Version
 
-### Accessing the Deployed Application
+### Accessing the Website
 
-The frontend is deployed on **Vercel** and can be accessed at:
-```
-https://your-vercel-deployment-url.vercel.app
-```
+1. **Get the Deployed URL**
+   - The deployed frontend URL will be provided by your instructor/administrator
+   - Or check your Vercel/Netlify dashboard if you deployed it yourself
 
-(Replace with your actual Vercel deployment URL)
+2. **Open in Browser**
+   - Simply navigate to the provided URL in any modern web browser
+   - No installation or setup required!
 
 ### First-Time Setup
 
-1. **Open the Website**: Navigate to the deployed URL in your browser
-2. **Create an Account**: Click "Sign Up" and fill in:
-   - Name
-   - Email address
-   - Password
-   - Optional: Role and expertise areas
-3. **Sign In**: After creating an account, sign in with your credentials
+1. **Create an Account**
+   - Click **"Sign Up"** on the homepage
+   - Enter your name, email, and password
+   - Click **"Create Account"**
+   - You'll be automatically logged in
 
-### Using Without Backend (Offline Mode)
+2. **Configure Profile (Optional)**
+   - Go to **Profile** from the navigation menu
+   - Add your expertise areas (e.g., "Machine Learning", "Business", "Education")
+   - Set your summary preferences
+   - This helps personalize your summaries
 
-If the backend server is not available, you can still use VideoWise in **Direct Processing Mode**:
+### Using Direct Processing Mode (No Backend Required)
 
-1. **Ensure API Key is Configured**: The frontend will use API keys from environment variables
-2. **Upload Video**: Select a video file (not YouTube URL - those require backend)
-3. **Process**: The video will be processed directly in your browser using Gemini API
-4. **View Results**: Summary will be displayed once processing completes
+If the backend is unavailable, you can still use VideoWise with **Direct Processing Mode**:
 
-**Note**: YouTube URLs require the backend server. For YouTube videos, ensure the backend is running and accessible.
+1. **Get a Gemini API Key**
+   - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Sign in with your Google account
+   - Click **"Create API Key"**
+   - Copy the key
+
+2. **Enter API Key**
+   - When uploading a video, if backend is down, you'll be prompted for an API key
+   - Paste your Gemini API key
+   - The key is stored locally in your browser (not sent to any server)
+
+3. **Process Videos**
+   - Upload videos as normal
+   - Processing happens directly in your browser
+   - All features work the same way
+
+**Note**: YouTube URLs can be processed even when the backend is down! The frontend will automatically download YouTube videos using public API services and then process them with Gemini. However, if the download services are unavailable, you may need to:
+- Download the video manually and upload the file directly
+- Ensure your backend server is running (YouTube downloads work more reliably with backend)
 
 ---
 
-## Features and Usage Guide
+## Features Guide
 
-### 1. Creating an Account
+### 1. Uploading Videos
 
-1. Click **"Sign Up"** on the homepage or navigation bar
-2. Fill in the registration form:
-   - **Name**: Your full name
-   - **Email**: A valid email address (used for login)
-   - **Password**: A secure password (minimum 6 characters)
-   - **Role** (Optional): Your profession or role
-   - **Expertise** (Optional): Areas of expertise (e.g., "Technology", "Business", "Education")
-3. Click **"Create Account"**
-4. You'll be automatically logged in and redirected to the dashboard
+#### Method 1: Upload Video File
+1. Click **"Upload Video"** tab
+2. Click **"Upload a file"** or drag and drop a video
+3. Supported formats: MP4, AVI, MOV, MKV (up to 500MB)
+4. Select your video file
+5. Preview will appear below
 
-### 2. Signing In
+#### Method 2: From URL
+1. Click **"From URL"** tab
+2. Paste the video URL
+   - **YouTube URLs**: Supported (requires backend)
+   - **Direct video URLs**: Supported (e.g., `https://example.com/video.mp4`)
+3. Click **"Start Summarization"**
 
-1. Click **"Sign In"** on the homepage or navigation bar
-2. Enter your **email** and **password**
-3. Click **"Sign In"**
-4. You'll be redirected to your dashboard
+### 2. Customizing Summary Options
 
-### 3. Uploading and Processing a Video
+Before processing, you can customize:
 
-#### Option A: Upload Video File
-
-1. **Navigate to Upload Page**: Click "New Summary" or "Upload Video" from the dashboard
-2. **Select Upload Tab**: Ensure "Upload Video" tab is selected
-3. **Choose File**: 
-   - Click "Upload a file" or drag and drop a video file
-   - Supported formats: MP4, AVI, MOV, WebM, MKV
-   - Maximum file size: 500MB
-4. **Preview** (Optional): Review the video before processing
-5. **Configure Options** (see below)
-6. **Click "Start Summarization"**
-
-#### Option B: Process from URL
-
-1. **Navigate to Upload Page**: Click "New Summary" or "Upload Video"
-2. **Select URL Tab**: Click "From URL" tab
-3. **Enter URL**: 
-   - For YouTube: `https://youtube.com/watch?v=VIDEO_ID` or `https://youtu.be/VIDEO_ID`
-   - For direct video links: Any direct link to a video file (MP4, etc.)
-4. **Configure Options** (see below)
-5. **Click "Start Summarization"**
-
-**Note**: YouTube URLs require the backend server to be running. Direct video URLs can work with or without backend.
-
-### 4. Configuring Summary Options
-
-Before starting summarization, you can customize:
+#### Number of Frames
+- **Range**: 5-20 frames
+- **Default**: 10 frames
+- **More frames** = Better analysis but slower processing
+- **Fewer frames** = Faster processing but less detailed
 
 #### Summary Style
+Choose the tone and style:
 - **Default**: Standard comprehensive summary
-- **Professional**: Formal, business-oriented language
-- **Commercial**: Marketing-focused, persuasive tone
+- **Professional**: Formal, business-oriented
+- **Commercial**: Marketing-focused, persuasive
 - **Educational**: Academic-style, learning-focused
-- **Casual**: Relaxed, conversational tone
-- **Technical**: Detailed technical summary with terminology
+- **Casual**: Relaxed, conversational
+- **Technical**: Detailed technical summary
 
 #### Summary Format
+Choose how the summary is structured:
 - **Paragraph**: Flowing narrative summary
-- **Bullet Points**: Quick scanning format with bullet points
+- **Bullet Points**: Quick scanning format
 - **Timeline**: Chronological breakdown with timestamps
-- **Chapters**: Divided into clear sections with headings
+- **Chapters**: Divided into sections with headings
 - **Key Moments**: Only highlights and important points
 
 #### Summary Length
+Control the word count:
 - **Auto**: Let AI decide optimal length
 - **Short**: ~100 words - Quick overview
 - **Medium**: ~250 words - Balanced summary
 - **Long**: ~500 words - Detailed summary
 - **Custom**: Specify exact word count (50-2000 words)
 
-#### Number of Frames
-- Controls how many frames are analyzed from the video
-- Range: 5-20 frames
-- More frames = better analysis but slower processing
-- Recommended: 10 frames for most videos
+### 3. Processing Videos
 
-### 5. Monitoring Processing Progress
+1. **Start Processing**
+   - Click **"Start Summarization"** button
+   - You'll be redirected to the job page
 
-After clicking "Start Summarization":
+2. **Monitor Progress**
+   - Real-time progress bar shows processing status
+   - Current step is displayed (e.g., "Extracting frames", "Generating summary")
+   - Estimated time remaining is shown
 
-1. **Job Created**: You'll be redirected to the job page
-2. **Progress Bar**: Shows real-time processing progress (0-100%)
-3. **Status Updates**: Displays current step:
-   - "Queued" - Waiting to start
-   - "Extracting frames" - Analyzing video frames
-   - "Transcribing audio" - Converting speech to text
-   - "Analyzing visual content" - Generating captions
-   - "Generating summary" - Creating final summary
-   - "Complete" - Processing finished
-4. **Wait Time**: Processing typically takes 1-5 minutes depending on video length and options
+3. **Wait for Completion**
+   - Processing typically takes 1-5 minutes depending on video length
+   - You can navigate away and come back later
+   - Job status is saved and can be accessed from Dashboard
 
-### 6. Viewing Results
+### 4. Viewing Results
 
 Once processing is complete:
 
-1. **Video Player**: Watch the video with playback controls
-2. **Summary Display**: View the summary in your selected format
-3. **Format Switcher**: Switch between different summary formats (Paragraph, Bullet, Timeline, etc.)
-4. **Key Moments**: Click timestamps to jump to important moments in the video
-5. **Export Options**: Download summary as PDF, Word, or Markdown
+1. **Video Player**
+   - Watch the video with built-in player
+   - Timeline markers show key moments
+   - Click markers to jump to important sections
 
-### 7. Exporting Summaries
+2. **Summary Display**
+   - Summary appears in your selected format
+   - Switch between formats using tabs
+   - Copy text with one click
 
-1. **Click Export Button**: Located near the summary display
-2. **Select Format**:
-   - **PDF**: Formatted document suitable for printing
-   - **Word**: Editable `.docx` file
-   - **Markdown**: Plain text markdown format
-   - **Copy**: Copy summary to clipboard
-3. **Download**: File will be downloaded to your default download folder
+3. **Export Options**
+   - Click **"Export"** button
+   - Choose format:
+     - **PDF**: Formatted document
+     - **Word**: Editable .docx file
+     - **Markdown**: Plain text format
+   - Or **Copy** to clipboard
 
-### 8. Managing Your Profile
+### 5. Managing Your Videos
 
-1. **Navigate to Profile**: Click your name/avatar → "Profile"
-2. **Update Information**:
-   - Name, Bio, Role
-   - Expertise areas
-   - Summary preferences (length, focus areas)
-3. **Save Changes**: Click "Save Profile"
-4. **Personalization**: Your profile information helps generate personalized summaries
+#### Dashboard
+- View all your processed videos
+- See job status (processing, done, failed)
+- Click any job to view results
+- Filter by status or date
 
-### 9. Viewing Job History
+#### Profile
+- Update your profile information
+- Set expertise areas
+- Configure summary preferences
+- These settings personalize future summaries
 
-1. **Dashboard**: Click "Dashboard" in navigation
-2. **Job List**: See all your processed videos
-3. **Status Indicators**: 
-   - Green = Completed
-   - Yellow = Processing
-   - Red = Failed
-4. **Click Job**: Open any job to view details and summary
+### 6. Account Management
 
-### 10. Dark Mode
+#### Sign Up
+- Create a new account with email and password
+- Account is free to create
+- No credit card required
 
-1. **Toggle Theme**: Click the theme icon (sun/moon) in the navigation bar
-2. **System Preference**: Theme automatically matches your system preference on first visit
-3. **Persistent**: Your theme choice is saved and remembered
+#### Login
+- Use your email and password
+- Stay logged in across sessions
+- Secure JWT-based authentication
 
----
-
-## YouTube URL Support
-
-### How It Works
-
-VideoWise supports downloading and summarizing videos directly from YouTube URLs using `yt-dlp`, a powerful YouTube downloader.
-
-### Supported YouTube URL Formats
-
-- Full URL: `https://www.youtube.com/watch?v=VIDEO_ID`
-- Short URL: `https://youtu.be/VIDEO_ID`
-- Mobile URL: `https://m.youtube.com/watch?v=VIDEO_ID`
-
-### Requirements
-
-- **Backend Server Must Be Running**: YouTube download requires the backend server
-- **yt-dlp Installed**: Automatically installed when you install backend dependencies
-- **Public Videos Only**: Private or age-restricted videos cannot be downloaded
-
-### How to Use
-
-1. **Ensure Backend is Running**: Start the backend server (see [Backend Setup](#backend-setup))
-2. **Navigate to Upload Page**: Click "New Summary" or "Upload Video"
-3. **Select URL Tab**: Click "From URL" tab
-4. **Enter YouTube URL**: Paste any YouTube video URL
-5. **Configure Options**: Select summary style, format, and length
-6. **Start Processing**: Click "Start Summarization"
-7. **Wait for Download**: The backend will download the video (may take 1-2 minutes)
-8. **Processing**: Video will be processed normally after download
-
-### Limitations
-
-- **Backend Required**: YouTube URLs cannot be processed in offline/direct mode
-- **Public Videos Only**: Private, unlisted (without link), or age-restricted videos may fail
-- **Download Time**: Large videos may take longer to download
-- **Video Quality**: Best available quality is downloaded (usually 720p or 1080p)
-
-### Troubleshooting YouTube URLs
-
-**Error: "Video unavailable"**
-- Video may be private, deleted, or region-restricted
-- Try a different public video
-
-**Error: "Backend server required"**
-- Ensure backend is running
-- Check `VITE_API_BASE_URL` in frontend `.env` file
-
-**Error: "Download failed"**
-- Check your internet connection
-- Video may be too large or unavailable
-- Try a different video
+#### Logout
+- Click your profile menu
+- Select **"Logout"**
+- Clears session data
 
 ---
 
@@ -510,197 +443,250 @@ VideoWise supports downloading and summarizing videos directly from YouTube URLs
 
 ### Backend Issues
 
-#### "ModuleNotFoundError: No module named 'flask'"
+#### "ModuleNotFoundError: No module named 'app'"
 **Solution**: 
-```bash
-cd backend
-source venv/bin/activate  # or venv\Scripts\activate on Windows
-pip install -r requirements.txt
-```
+- Make sure `app.py` and `video_processor.py` are in `/content/` in Colab
+- Re-run the cell that creates/uploads backend files
 
-#### "Port 5000 already in use"
+#### "No module named 'flask'"
 **Solution**: 
-- Stop other applications using port 5000
-- Or change port in `app.py`: `app.run(port=5001)`
-- Update frontend `.env`: `VITE_API_BASE_URL=http://localhost:5001`
+- Re-run the dependency installation cell
+- Make sure all packages installed successfully
 
-#### "API key invalid" or "401 Unauthorized"
-**Solution**:
-- Check your `.env` file in `backend/` directory
-- Ensure API keys are correct and not expired
-- Get new keys from [Groq](https://console.groq.com/) or [Google AI Studio](https://makersuite.google.com/app/apikey)
+#### Server stops working
+**Solution**: 
+- Keep the server cell running! Don't stop it
+- If Colab disconnects, re-run all cells
+- Check for errors in the cell output
 
-#### "Video processing failed"
-**Solution**:
-- Check video file is not corrupted
-- Ensure video format is supported (MP4, AVI, MOV, etc.)
-- Check video file size is under 500MB
-- Review backend logs for detailed error messages
+#### Can't see public URL
+**Solution**: 
+- Check Cloudflare tunnel cell output carefully
+- URL appears after a few seconds
+- Look for `https://xxxxx.trycloudflare.com`
+- Try re-running the tunnel cell
 
-#### "yt-dlp download failed" (YouTube URLs)
+#### "Failed to download video from URL"
 **Solution**:
-- Ensure `yt-dlp` is installed: `pip install yt-dlp`
-- Check video is public and accessible
-- Try a different YouTube video
-- Check internet connection
+- Check if the URL is valid and accessible
+- For YouTube URLs, ensure backend is running
+- Try a different video URL
+- Check your internet connection
 
 ### Frontend Issues
 
 #### "Network Error" or "CORS Error"
-**Solution**:
-- Check backend is running (`http://localhost:5000/health`)
-- Verify `VITE_API_BASE_URL` in `frontend/.env` matches backend URL
-- Ensure no trailing slash in URL (use `http://localhost:5000` not `http://localhost:5000/`)
-- Check backend CORS is enabled (should be automatic)
+**Solution**: 
+- Check `VITE_API_BASE_URL` in `frontend/.env`
+- Make sure backend is running
+- Verify URL is correct (no trailing slash)
+- For Colab backend, ensure tunnel is active
 
-#### "Cannot find module" errors
-**Solution**:
-```bash
-cd frontend
-rm -rf node_modules package-lock.json
-npm install
-```
+#### "401 Unauthorized"
+**Solution**: 
+- Login again or sign up
+- Check if token is stored in localStorage
+- Clear browser cache and try again
 
-#### "Port 3000 already in use"
-**Solution**:
-- Stop other applications using port 3000
-- Or change port: `npm run dev -- --port 3001`
+#### Build errors
+**Solution**: 
+- Run `npm install` again
+- Delete `node_modules` and reinstall:
+  ```bash
+  rm -rf node_modules
+  npm install
+  ```
+- Check Node.js version (should be 18+)
 
-#### "401 Unauthorized" when accessing pages
-**Solution**:
-- Sign out and sign in again
-- Clear browser localStorage: Open DevTools → Application → Local Storage → Clear
-- Check backend JWT_SECRET_KEY is set correctly
+#### "vite: command not found" (Vercel deployment)
+**Solution**: 
+- This is already fixed in the codebase
+- Ensure `package.json` has correct build scripts
+- Check `vercel.json` configuration
 
-#### "YouTube URLs require backend"
-**Solution**:
-- This is expected behavior - YouTube URLs need backend server
-- Start the backend server (see [Backend Setup](#backend-setup))
-- Or upload video file directly instead of using URL
+#### "404: NOT_FOUND" (Vercel deployment)
+**Solution**: 
+- This is already fixed in the codebase
+- Ensure `vercel.json` specifies correct output directory
+- Check build output directory matches configuration
 
-### General Issues
+### Video Processing Issues
 
-#### "Processing stuck at X%"
-**Solution**:
-- Wait a few more minutes (processing can take 5-10 minutes for long videos)
-- Check backend logs for errors
-- Refresh the page and check job status
-- If stuck for >10 minutes, cancel and retry
+#### "Video processing failed"
+**Solution**: 
+- Check video file format (MP4, AVI, MOV supported)
+- Ensure file size is under 500MB
+- Try a shorter video first
+- Check backend logs for detailed error
 
-#### "Summary is too short/long"
-**Solution**:
-- Adjust "Summary Length" option before processing
-- Use "Custom" length to specify exact word count
-- Reprocess video with different length setting
+#### "Video processing timed out"
+**Solution**: 
+- Video might be too long
+- Try reducing number of frames
+- Check backend resources (GPU memory)
+- Try again later
 
-#### "Video player not loading"
-**Solution**:
-- Check video file exists and is accessible
-- Try refreshing the page
-- Check browser console for errors (F12 → Console)
-- Ensure video format is supported by browser
+#### Summary is too short/long
+**Solution**: 
+- Adjust summary length setting
+- Use "Custom" option for exact word count
+- Try different summary formats
 
-#### "Export not working"
-**Solution**:
-- Check browser allows downloads
-- Try a different export format
-- Check browser console for errors
-- Ensure summary is loaded before exporting
+### YouTube URL Issues
+
+#### "YouTube video downloads require backend"
+**Solution**: 
+- Ensure backend server is running
+- Check backend URL is correct in frontend `.env`
+- Verify backend has `yt-dlp` installed
+- Try a different YouTube video
+
+#### YouTube download fails
+**Solution**: 
+- Check if video is publicly accessible
+- Some videos may be region-restricted
+- Try downloading the video manually and uploading the file
+- Check backend logs for specific error
 
 ---
 
-## FAQs
+## FAQ
 
-### Q: Do I need a GPU to run the backend?
-**A**: GPU is recommended for faster processing, but CPU will work. Processing will be slower on CPU.
+### General Questions
 
-### Q: Can I use VideoWise without a backend server?
-**A**: Yes! Use "Direct Processing Mode" with a Gemini API key. However, YouTube URLs require backend.
+**Q: Is VideoWise free to use?**
+A: Yes! VideoWise is free to use. You only need API keys for some features (Groq and Gemini offer free tiers).
 
-### Q: How much does it cost to use VideoWise?
-**A**: 
-- **Backend**: Free if running locally or on Colab (free GPU)
-- **Groq API**: Free tier available (generous limits)
-- **Gemini API**: Free tier available (60 requests/minute)
-- **Deployment**: Vercel free tier for frontend
+**Q: What video formats are supported?**
+A: MP4, AVI, MOV, and MKV formats are supported. Maximum file size is 500MB.
 
-### Q: What video formats are supported?
-**A**: MP4, AVI, MOV, WebM, MKV, and most common video formats.
+**Q: How long does processing take?**
+A: Typically 1-5 minutes depending on video length and number of frames analyzed. Longer videos take more time.
 
-### Q: What's the maximum video file size?
-**A**: 500MB per video file.
+**Q: Can I process multiple videos at once?**
+A: Currently, videos are processed one at a time. You can start multiple jobs, but they'll process sequentially.
 
-### Q: How long does processing take?
-**A**: Typically 1-5 minutes depending on:
-- Video length
-- Number of frames analyzed
-- Backend processing power (GPU vs CPU)
-- Current server load
+**Q: Are my videos stored permanently?**
+A: Videos are temporarily stored during processing and then deleted. Only summaries and metadata are kept.
 
-### Q: Can I process multiple videos at once?
-**A**: Currently, videos are processed one at a time. Multiple jobs can be queued.
+**Q: Can I use VideoWise offline?**
+A: Direct Processing Mode works offline after initial setup, but YouTube downloads and backend features require internet.
 
-### Q: Are my videos stored permanently?
-**A**: 
-- **Backend**: Videos are deleted after processing (stored temporarily)
-- **Frontend**: Summaries are stored in browser localStorage (local only)
-- **Database**: Only summary results are stored, not video files
+### Technical Questions
 
-### Q: Is my data secure?
-**A**: 
-- Passwords are hashed (never stored in plain text)
-- JWT tokens for authentication
-- Videos processed locally or on your server
-- No video files stored permanently
+**Q: Do I need a GPU?**
+A: GPU is recommended for faster processing but not required. Backend will work on CPU (slower).
 
-### Q: Can I use VideoWise offline?
-**A**: Partially - Direct Processing Mode works offline if you have a Gemini API key, but YouTube URLs require internet and backend.
+**Q: Can I run backend on my own server?**
+A: Yes! Follow the "Run Backend Locally" instructions. You can deploy to any server that supports Python.
 
-### Q: How do I update VideoWise?
-**A**: 
+**Q: How do I update the code?**
+A: Pull latest changes from git repository, or re-download the code. Then reinstall dependencies if needed.
+
+**Q: Can I customize the AI models?**
+A: Yes, you can modify `backend/video_processor.py` to use different models. See backend README for details.
+
+**Q: Is my data secure?**
+A: Yes! Videos are processed locally or on your backend. API keys are stored securely. No data is shared with third parties.
+
+### Feature Questions
+
+**Q: Can I edit summaries?**
+A: Yes! Export summaries as Word (.docx) to edit them, or copy and paste into any editor.
+
+**Q: Can I share summaries with others?**
+A: Yes! Export as PDF or Word and share the file, or copy the text.
+
+**Q: Can I process audio-only files?**
+A: Currently, VideoWise requires video files. Audio extraction happens automatically from videos.
+
+**Q: What languages are supported?**
+A: Currently, English is the primary language. Multi-language support may be added in future updates.
+
+**Q: Can I integrate VideoWise with other tools?**
+A: Yes! Use the API endpoints to integrate with other applications. See backend README for API documentation.
+
+---
+
+## Support and Resources
+
+### Documentation
+- **Main README**: `README.md` - Quick start guide
+- **Backend README**: `backend/README.md` - Backend technical details
+- **Frontend README**: `frontend/README.md` - Frontend technical details
+- **Gemini Direct Feature**: `GEMINI_DIRECT_FEATURE.md` - Direct processing guide
+
+### Getting Help
+- Check the Troubleshooting section above
+- Review error messages carefully
+- Check backend/frontend logs for detailed errors
+- Consult the FAQ section
+
+### Contributing
+- Report bugs or issues
+- Suggest new features
+- Improve documentation
+- Share your feedback
+
+---
+
+## Quick Reference
+
+### Important URLs
+- **Frontend (Local)**: `http://localhost:3000`
+- **Backend (Local)**: `http://localhost:5000`
+- **Backend Health Check**: `http://localhost:5000/health`
+- **Google Colab**: https://colab.research.google.com/
+- **Groq API**: https://console.groq.com/
+- **Gemini API**: https://makersuite.google.com/app/apikey
+
+### Key Commands
 ```bash
-# Backend
+# Backend (Local)
 cd backend
-git pull
-pip install -r requirements.txt
+python app.py
 
 # Frontend
 cd frontend
-git pull
-npm install
+npm run dev
+
+# Install dependencies
+pip install -r requirements.txt  # Backend
+npm install                      # Frontend
 ```
 
-### Q: Where can I get API keys?
-**A**: 
-- **Groq**: https://console.groq.com/ (free tier)
-- **Gemini**: https://makersuite.google.com/app/apikey (free tier)
+### Environment Variables
+```env
+# Backend (.env)
+JWT_SECRET_KEY=your-secret-key
+GROQ_API_KEY=your-groq-key
+GEMINI_API_KEY=your-gemini-key
+UPLOAD_FOLDER=./uploads
+DB_PATH=./videowise.db
 
-### Q: Can I customize summary styles?
-**A**: Yes! You can select from 6 predefined styles, or your profile preferences will influence the summary.
-
-### Q: Does VideoWise support multiple languages?
-**A**: Currently optimized for English, but can process videos in other languages (accuracy may vary).
-
----
-
-## Support and Contact
-
-For issues, questions, or contributions:
-- **GitHub Repository**: https://github.com/Muhammad-Abdullah-Waheed/VideoWise_SE_Project_S_7
-- **Report Issues**: Use GitHub Issues
-- **Documentation**: See `README.md` and `backend/README.md` for technical details
+# Frontend (.env)
+VITE_API_BASE_URL=http://localhost:5000
+VITE_GEMINI_API_KEY=your-gemini-key
+```
 
 ---
 
-## Version Information
+## Conclusion
 
-- **Current Version**: 1.0.0
-- **Last Updated**: 2024
-- **License**: See repository for license information
+Congratulations! You now know how to:
+- ✅ Download and run VideoWise locally
+- ✅ Use the deployed version
+- ✅ Upload and process videos
+- ✅ Customize summaries
+- ✅ Export and share results
+- ✅ Troubleshoot common issues
+
+**Happy summarizing! 🎉**
+
+If you have any questions or need help, refer to the Troubleshooting section or consult the documentation files.
 
 ---
 
-**Thank you for using VideoWise!** 🎉
-
-For the best experience, ensure both backend and frontend are running, and use a modern web browser with a stable internet connection.
+*Last Updated: [Current Date]*
+*Version: 1.0*
 
